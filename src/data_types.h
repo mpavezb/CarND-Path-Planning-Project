@@ -1,6 +1,7 @@
 #ifndef DATA_TYPES_H
 #define DATA_TYPES_H
 
+#include <string>
 #include <vector>
 
 namespace udacity {
@@ -41,12 +42,13 @@ struct Map {
 };
 
 struct FusedObject {
+  double id;
   double x;
   double y;
+  double vx;
+  double vy;
   double s;
   double d;
-  double yaw;
-  double speed;
 };
 
 typedef std::vector<FusedObject> SensorFusionList;

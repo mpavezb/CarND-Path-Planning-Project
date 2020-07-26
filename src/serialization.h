@@ -42,6 +42,12 @@ class MapReader {
 
 void from_json(const nlohmann::json& j, FusedObject& object) {
   const std::vector<double> values = j;
+  object.id = values[0];
+  object.x = values[1];
+  object.y = values[2];
+  object.vx = values[3];
+  object.vy = values[4];
+  object.s = values[5];
   object.d = values[6];
 }
 
