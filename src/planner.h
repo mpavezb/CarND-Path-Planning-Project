@@ -92,10 +92,8 @@ class MotionPlanner {
 
     SplineAnchors anchors = generateSplineAnchors(telemetry);
 
-    // Transform interpolation path to ego frame
-    // This is important to ensure the path is as horizontal as possible,
-    // so that for any given x, there is only one y value.
-
+    // Transform anchors to ego frame to ensure they are as horizontal as
+    // possible, so that for any given x, there is only one y value.
     for (int i = 0; i < 5; i++) {
       // shift + rotation
       double shift_x = anchors.x[i] - anchors.ref_x;
@@ -106,8 +104,35 @@ class MotionPlanner {
                      shift_y * cos(0 - anchors.ref_yaw);
     }
 
+    // Create Spline
     tk::spline s;
     s.set_points(anchors.x, anchors.y);
+
+    // Generate interpolation points between anchors
+    // Points are evenly spaced in x axis, so that desired speed is kept.
+    double target_x = 30.0;  // look_ahead_distance_ / (n_anchors_ - 2);
+    double target_y = s(target_x);
+    double target_dist = distance(0, 0, target_x, target_y);
+    double x_add_on = 0;
+    int missing_points = path_size_ - telemetry.previous_path_x.size();
+    for (int i = 0; i < missing_points; ++i) {
+      double N = target_dist * path_execution_frequency_ / target_velocity_mps_;
+      double x_point = x_add_on + target_x / N;
+      double y_point = s(x_point);
+      x_add_on = x_point;
+
+      // rotate back to map coordinates
+      double x_ref = x_point;
+      double y_ref = y_point;
+      x_point = x_ref * cos(anchors.ref_yaw) - y_ref * sin(anchors.ref_yaw);
+      y_point = x_ref * sin(anchors.ref_yaw) + y_ref * cos(anchors.ref_yaw);
+      x_point += anchors.ref_x;
+      y_point += anchors.ref_y;
+
+      // add to points
+      next_x_vals.push_back(x_point);
+      next_y_vals.push_back(y_point);
+    }
   }
 
   Path getNextXVals() const { return next_x_vals; }
@@ -118,6 +143,7 @@ class MotionPlanner {
   Path next_y_vals;
   std::uint8_t target_lane_id_{1};
   float target_velocity_mph_{49.5F};
+  float target_velocity_mps_{49.5F / 2.24F};
   int path_size_{50};
   float path_execution_frequency_{1 / .02F};
   int n_anchors_ = 5;
