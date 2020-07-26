@@ -5,18 +5,22 @@
 #include <string>
 #include <vector>
 
+#include "helpers.h"
 #include "json.hpp"
 
 namespace udacity {
 
+typedef std::vector<double> Path;
+typedef std::vector<Path> Paths;
+
 struct Map {
   double max_s{0.0};
   std::string filename;
-  std::vector<double> waypoints_x;
-  std::vector<double> waypoints_y;
-  std::vector<double> waypoints_s;
-  std::vector<double> waypoints_dx;
-  std::vector<double> waypoints_dy;
+  Path waypoints_x;
+  Path waypoints_y;
+  Path waypoints_s;
+  Path waypoints_dx;
+  Path waypoints_dy;
 };
 
 class MapReader {
@@ -58,11 +62,11 @@ struct TelemetryPacket {
   double car_speed;
 
   // A list of all other cars on the same side the road.
-  // auto sensor_fusion;
+  Paths sensor_fusion;
 
   // Previous path data given to the Planner
-  // auto previous_path_x;
-  // auto previous_path_y;
+  Path previous_path_x;
+  Path previous_path_y;
 
   // Previous path's end s and d values
   double end_path_s;
@@ -71,20 +75,28 @@ struct TelemetryPacket {
 
 class TelemetryParser {
  public:
+  template <typename T>
+  static std::vector<T> fromJsonVector(const nlohmann::json& data) {
+    std::vector<T> result;
+    for (auto value : data) {
+      result.push_back(value);
+    }
+    return result;
+  }
+
   static TelemetryPacket fromJson(const nlohmann::json& data) {
     TelemetryPacket packet;
     packet.car_x = data["x"];
     packet.car_y = data["y"];
     packet.car_s = data["s"];
     packet.car_d = data["d"];
-    packet.car_yaw = data["yaw"];
+    packet.car_yaw = deg2rad(data["yaw"]);
     packet.car_speed = data["speed"];
-    // previous_path_x = data["previous_path_x"];
-    // previous_path_y = data["previous_path_y"];
+    packet.previous_path_x = fromJsonVector<double>(data["previous_path_x"]);
+    packet.previous_path_y = fromJsonVector<double>(data["previous_path_y"]);
+    packet.sensor_fusion = fromJsonVector<Path>(data["sensor_fusion"]);
     packet.end_path_s = data["end_path_s"];
     packet.end_path_d = data["end_path_d"];
-    // auto sensor_fusion = data["sensor_fusion"];
-
     return packet;
   }
 };

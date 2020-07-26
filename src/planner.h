@@ -29,12 +29,12 @@ class MotionPlanner {
     }
   }
 
-  std::vector<double> getNextXVals() const { return next_x_vals; }
-  std::vector<double> getNextYVals() const { return next_y_vals; }
+  Path getNextXVals() const { return next_x_vals; }
+  Path getNextYVals() const { return next_y_vals; }
 
  private:
-  std::vector<double> next_x_vals;
-  std::vector<double> next_y_vals;
+  Path next_x_vals;
+  Path next_y_vals;
   Map map_;
 };
 
