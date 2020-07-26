@@ -2,6 +2,7 @@
 #define ENVIRONMENT_H
 
 #include <fstream>
+#include <iostream>
 #include <string>
 #include <vector>
 
@@ -12,6 +13,19 @@ namespace udacity {
 
 typedef std::vector<double> Path;
 typedef std::vector<Path> Paths;
+
+void printPath(const Path& path, const std::string& name) {
+  std::stringstream ss;
+  ss << name << "[";
+  for (int i = 0; i < path.size() - 1; ++i) {
+    ss << path[i] << ", ";
+  }
+  if (path.size() > 0) {
+    ss << path[path.size() - 1];
+  }
+  ss << "]";
+  std::cout << ss.str() << std::endl;
+}
 
 struct Map {
   double max_s{0.0};

@@ -1,6 +1,7 @@
 #ifndef PLANNER_H
 #define PLANNER_H
 
+#include <iostream>
 #include <vector>
 
 #include "environment.h"
@@ -28,18 +29,22 @@ class MotionPlanner {
    *
    * Anchors are based on the previous path's endpoint whenever possible.
    * Otherwise, the car is used as starting reference.
+   *
+   * Note that previous path end point is always further away than the car.
    */
   SplineAnchors generateSplineAnchors(const TelemetryPacket& telemetry) {
     SplineAnchors anchors;
 
     auto prev_path_size = telemetry.previous_path_x.size();
     if (prev_path_size < 2) {
+      // based only on car
       anchors.ref_yaw = telemetry.car_yaw;
       anchors.ref_x = telemetry.car_x;
       anchors.ref_y = telemetry.car_y;
       anchors.ref_x_prev = anchors.ref_x - cos(anchors.ref_yaw);
       anchors.ref_y_prev = anchors.ref_y - sin(anchors.ref_yaw);
     } else {
+      // based only on previous endpoints
       anchors.ref_x = telemetry.previous_path_x[prev_path_size - 1];
       anchors.ref_y = telemetry.previous_path_y[prev_path_size - 1];
       anchors.ref_x_prev = telemetry.previous_path_x[prev_path_size - 2];
@@ -52,15 +57,18 @@ class MotionPlanner {
 
     // Add extra anchors
     // TODO: 4 = lane width?
-    int n_extra_anchors = n_anchors_ - 2;
-    for (int i = 0; i < n_extra_anchors; ++i) {
-      float spacing = look_ahead_distance_ / n_extra_anchors;
+    int n_missing_anchors = n_anchors_ - 2;
+    for (int i = 0; i < n_missing_anchors; ++i) {
+      float spacing = (i + 1) * look_ahead_distance_ / n_missing_anchors;
+      float s = telemetry.car_s + spacing;
+      float d = 2 + 4 * target_lane_id_;
       std::vector<double> anchor =
-          getXY(telemetry.car_s + spacing, (2 + 4 * target_lane_id_),
-                map_.waypoints_s, map_.waypoints_x, map_.waypoints_y);
+          getXY(s, d, map_.waypoints_s, map_.waypoints_x, map_.waypoints_y);
       anchors.x.push_back(anchor[0]);
       anchors.y.push_back(anchor[1]);
     }
+    // printPath(anchors.x, "Anchor X");
+    // printPath(anchors.y, "Anchor Y");
     return anchors;
   }
 
