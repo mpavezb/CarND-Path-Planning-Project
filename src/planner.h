@@ -49,10 +49,16 @@ class MotionPlanner {
     anchors.y = {prev_y, ref.y};
 
     // Add extra anchors
+    double car_s = telemetry.car_s;
+    if (prev_path_size > 0) {
+      car_s = telemetry.end_path_s;
+    }
+
     int n_missing_anchors = n_anchors_ - 2;
     for (int i = 0; i < n_missing_anchors; ++i) {
       float spacing = look_ahead_distance_ / n_missing_anchors;
-      float s = telemetry.car_s + (i + 1) * spacing;
+      // TODO: using car_s might be a bug
+      float s = car_s + (i + 1) * spacing;
       float d = lane_width_ * (0.5 + target_lane_id_);
       std::vector<double> anchor =
           getXY(s, d, map_.waypoints_s, map_.waypoints_x, map_.waypoints_y);
@@ -106,7 +112,7 @@ class MotionPlanner {
     double target_x = look_ahead_distance_;
     double target_y = gen(target_x);
     double target_dist = distance(0, 0, target_x, target_y);
-    double N = target_dist * path_execution_frequency_ / target_velocity_mps_;
+    double N = target_dist * path_execution_frequency_ / current_velocity_mps_;
 
     for (int i = 0; i < missing_points; ++i) {
       Point ego_point;
@@ -118,6 +124,10 @@ class MotionPlanner {
       result.y.push_back(map_point.y);
     }
     return result;
+  }
+
+  bool isObjectInSameLane(const FusedObject& object) {
+    return left_boundary_d_ < object.d && object.d < right_boundary_d_;
   }
 
   /**
@@ -134,9 +144,48 @@ class MotionPlanner {
     SplineAnchors anchors = generateSplineAnchors(telemetry);
     SplineAnchors ego_anchors = transformToEgo(anchors);
 
-    bool too_close = false;
-    for (const auto path : telemetry.sensor_fusion) {
+    // Why is this needed?!
+    int prev_size = telemetry.last_trajectory.x.size();
+    double car_s = telemetry.car_s;
+    if (prev_size > 0) {
+      car_s = telemetry.end_path_s;
     }
+
+    bool too_close = false;
+    for (const auto object : telemetry.sensor_fusion) {
+      if (isObjectInSameLane(object)) {
+        double speed = sqrt(object.vx * object.vx + object.vy * object.vy);
+        double object_s = object.s;
+
+        // If using the previous path, then we are not yet there??
+        // Then we project the object in time to be prev_size steps ahead.
+        if (prev_size > 0) {
+          object_s += prev_size * speed / path_execution_frequency_;
+        }
+
+        double safety_gap = 30.0;
+        bool is_object_in_front = car_s < object_s;
+        bool is_object_near = abs(car_s - object_s) < safety_gap;
+        if (is_object_in_front && is_object_near) {
+          too_close = true;
+          if (target_lane_id_ > 0) {
+            target_lane_id_ = 0;  // 1=left, 2=middle, 3=right
+            center_lane_d_ = lane_width_ * (0.5 + target_lane_id_);
+            left_boundary_d_ = center_lane_d_ - lane_width_ / 2.0;
+            right_boundary_d_ = center_lane_d_ + lane_width_ / 2.0;
+          }
+          break;
+        }
+      }
+    }
+    if (too_close) {
+      // TODO: decrease velocity according to computed deceleration
+      current_velocity_mps_ -= velocity_delta_mps_;
+    } else if (current_velocity_mps_ < target_velocity_mps_) {
+      // TODO: increment velocity according to acceleration
+      current_velocity_mps_ += velocity_delta_mps_;
+    }
+    std::cout << "speed: " << current_velocity_mps_ << std::endl;
 
     return interpolateMissingPoints(telemetry.last_trajectory, ego_anchors);
   }
@@ -149,13 +198,18 @@ class MotionPlanner {
   // target
   std::uint8_t target_lane_id_{1};  // 1=left, 2=middle, 3=right
   float target_velocity_mph_{49.5F};
-  float target_velocity_mps_{49.5F / 2.24F};
+  float target_velocity_mps_{target_velocity_mph_ / 2.237F};
+  float current_velocity_mps_{0.0F};
+  double center_lane_d_{lane_width_ * (0.5 + target_lane_id_)};
+  double left_boundary_d_{center_lane_d_ - lane_width_ / 2.0};
+  double right_boundary_d_{center_lane_d_ + lane_width_ / 2.0};
 
   // algorithms
   int path_size_{50};
-  int n_anchors_ = 5;
+  int n_anchors_{5};
   float path_execution_frequency_{1 / .02F};
-  float look_ahead_distance_ = 90;
+  float look_ahead_distance_{90.0F};
+  float velocity_delta_mps_{0.1F};
 };
 
 }  // namespace udacity
