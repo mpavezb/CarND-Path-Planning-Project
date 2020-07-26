@@ -56,12 +56,11 @@ class MotionPlanner {
     anchors.y = {anchors.ref_y_prev, anchors.ref_y};
 
     // Add extra anchors
-    // TODO: 4 = lane width?
     int n_missing_anchors = n_anchors_ - 2;
     for (int i = 0; i < n_missing_anchors; ++i) {
-      float spacing = (i + 1) * look_ahead_distance_ / n_missing_anchors;
-      float s = telemetry.car_s + spacing;
-      float d = 2 + 4 * target_lane_id_;
+      float spacing = look_ahead_distance_ / n_missing_anchors;
+      float s = telemetry.car_s + (i + 1) * spacing;
+      float d = lane_width_ * (0.5 + target_lane_id_);
       std::vector<double> anchor =
           getXY(s, d, map_.waypoints_s, map_.waypoints_x, map_.waypoints_y);
       anchors.x.push_back(anchor[0]);
@@ -94,7 +93,7 @@ class MotionPlanner {
 
     // Transform anchors to ego frame to ensure they are as horizontal as
     // possible, so that for any given x, there is only one y value.
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < n_anchors_; i++) {
       // shift + rotation
       double shift_x = anchors.x[i] - anchors.ref_x;
       double shift_y = anchors.y[i] - anchors.ref_y;
@@ -110,16 +109,14 @@ class MotionPlanner {
 
     // Generate interpolation points between anchors
     // Points are evenly spaced in x axis, so that desired speed is kept.
-    double target_x = 30.0;  // look_ahead_distance_ / (n_anchors_ - 2);
+    double target_x = look_ahead_distance_;
     double target_y = s(target_x);
     double target_dist = distance(0, 0, target_x, target_y);
-    double x_add_on = 0;
+    double N = target_dist * path_execution_frequency_ / target_velocity_mps_;
     int missing_points = path_size_ - telemetry.previous_path_x.size();
     for (int i = 0; i < missing_points; ++i) {
-      double N = target_dist * path_execution_frequency_ / target_velocity_mps_;
-      double x_point = x_add_on + target_x / N;
+      double x_point = (i + 1) * target_x / N;
       double y_point = s(x_point);
-      x_add_on = x_point;
 
       // rotate back to map coordinates
       double x_ref = x_point;
@@ -139,16 +136,23 @@ class MotionPlanner {
   Path getNextYVals() const { return next_y_vals; }
 
  private:
+  Map map_;
   Path next_x_vals;
   Path next_y_vals;
-  std::uint8_t target_lane_id_{1};
+
+  // environment
+  float lane_width_{4.0F};
+
+  // target
+  std::uint8_t target_lane_id_{1};  // 1=left, 2=middle, 3=right
   float target_velocity_mph_{49.5F};
   float target_velocity_mps_{49.5F / 2.24F};
+
+  // algorithms
   int path_size_{50};
-  float path_execution_frequency_{1 / .02F};
   int n_anchors_ = 5;
-  float look_ahead_distance_ = 90;  // [m]
-  Map map_;
+  float path_execution_frequency_{1 / .02F};
+  float look_ahead_distance_ = 90;
 };
 
 }  // namespace udacity
