@@ -38,11 +38,11 @@ int main() {
         if (event == "telemetry") {
           const json packet = j[1];
           const auto telemetry_packet = TelemetryParser::fromJson(packet);
-          planner.generateTrajectory(telemetry_packet);
+          Trajectory trajectory = planner.generateTrajectory(telemetry_packet);
 
           json msgJson;
-          msgJson["next_x"] = planner.getNextXVals();
-          msgJson["next_y"] = planner.getNextYVals();
+          msgJson["next_x"] = trajectory.x;
+          msgJson["next_y"] = trajectory.y;
           auto msg = "42[\"control\"," + msgJson.dump() + "]";
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }  // end "telemetry" if

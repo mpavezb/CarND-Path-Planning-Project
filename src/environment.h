@@ -27,6 +27,28 @@ void printPath(const Path& path, const std::string& name) {
   std::cout << ss.str() << std::endl;
 }
 
+struct Point {
+  double x;
+  double y;
+};
+
+struct Pose {
+  double x;
+  double y;
+  double yaw;
+};
+
+struct SplineAnchors {
+  Path x;
+  Path y;
+  Pose reference;
+};
+
+struct Trajectory {
+  Path x;
+  Path y;
+};
+
 struct Map {
   double max_s{0.0};
   std::string filename;
@@ -78,9 +100,8 @@ struct TelemetryPacket {
   // A list of all other cars on the same side the road.
   Paths sensor_fusion;
 
-  // Previous path data given to the Planner
-  Path previous_path_x;
-  Path previous_path_y;
+  // Unvisited points from previous trajectory
+  Trajectory last_trajectory;
 
   // Previous path's end s and d values
   double end_path_s;
@@ -106,8 +127,8 @@ class TelemetryParser {
     packet.car_d = data["d"];
     packet.car_yaw = deg2rad(data["yaw"]);
     packet.car_speed = data["speed"];
-    packet.previous_path_x = fromJsonVector<double>(data["previous_path_x"]);
-    packet.previous_path_y = fromJsonVector<double>(data["previous_path_y"]);
+    packet.last_trajectory.x = fromJsonVector<double>(data["previous_path_x"]);
+    packet.last_trajectory.y = fromJsonVector<double>(data["previous_path_y"]);
     packet.sensor_fusion = fromJsonVector<Path>(data["sensor_fusion"]);
     packet.end_path_s = data["end_path_s"];
     packet.end_path_d = data["end_path_d"];
