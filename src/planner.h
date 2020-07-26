@@ -4,7 +4,7 @@
 #include <iostream>
 #include <vector>
 
-#include "environment.h"
+#include "data_types.h"
 #include "helpers.h"
 #include "spline.h"
 
@@ -133,6 +133,11 @@ class MotionPlanner {
   Trajectory generateTrajectory(const TelemetryPacket& telemetry) {
     SplineAnchors anchors = generateSplineAnchors(telemetry);
     SplineAnchors ego_anchors = transformToEgo(anchors);
+
+    bool too_close = false;
+    for (const auto path : telemetry.sensor_fusion) {
+    }
+
     return interpolateMissingPoints(telemetry.last_trajectory, ego_anchors);
   }
 

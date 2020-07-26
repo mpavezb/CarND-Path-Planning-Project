@@ -3,8 +3,12 @@
 
 #include <math.h>
 
+#include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
+
+#include "data_types.h"
 
 // for convenience
 using std::string;
@@ -153,6 +157,19 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s,
   double y = seg_y + d * sin(perp_heading);
 
   return {x, y};
+}
+
+void printPath(const udacity::Path &path, const std::string &name) {
+  std::stringstream ss;
+  ss << name << "[";
+  for (int i = 0; i < path.size() - 1; ++i) {
+    ss << path[i] << ", ";
+  }
+  if (path.size() > 0) {
+    ss << path[path.size() - 1];
+  }
+  ss << "]";
+  std::cout << ss.str() << std::endl;
 }
 
 #endif  // HELPERS_H

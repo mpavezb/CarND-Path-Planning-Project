@@ -5,10 +5,11 @@
 
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
-#include "environment.h"
+#include "data_types.h"
 #include "helpers.h"
 #include "json.hpp"
 #include "planner.h"
+#include "serialization.h"
 
 // for convenience
 using nlohmann::json;
@@ -36,9 +37,8 @@ int main() {
         auto j = json::parse(s);
         string event = j[0].get<string>();
         if (event == "telemetry") {
-          const json packet = j[1];
-          const auto telemetry_packet = TelemetryParser::fromJson(packet);
-          Trajectory trajectory = planner.generateTrajectory(telemetry_packet);
+          TelemetryPacket telemetry = j[1];
+          Trajectory trajectory = planner.generateTrajectory(telemetry);
 
           json msgJson;
           msgJson["next_x"] = trajectory.x;
