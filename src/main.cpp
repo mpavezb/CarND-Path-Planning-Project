@@ -1,12 +1,11 @@
 #include <uWS/uWS.h>
 
-#include <fstream>
 #include <iostream>
 #include <string>
-#include <vector>
 
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
+#include "environment.h"
 #include "helpers.h"
 #include "json.hpp"
 #include "planner.h"
@@ -14,7 +13,6 @@
 // for convenience
 using nlohmann::json;
 using std::string;
-using std::vector;
 using namespace udacity;
 
 int main() {
