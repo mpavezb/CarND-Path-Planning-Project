@@ -38,7 +38,7 @@ int main() {
         if (event == "telemetry") {
           const json packet = j[1];
           const auto telemetry_packet = TelemetryParser::fromJson(packet);
-          planner.generate_trajectory(telemetry_packet);
+          planner.generateTrajectory(telemetry_packet);
 
           json msgJson;
           msgJson["next_x"] = planner.getNextXVals();

@@ -13,6 +13,7 @@ class MotionPlanner {
   MotionPlanner(const Map& map) : map_(map) {}
 
   void generate_trajectory(const TelemetryPacket& telemetry) {
+  void generateTrajectory(const TelemetryPacket& telemetry) {
     /**
      * TODO: define a path made up of (x,y) points that the car will visit
      *   sequentially every .02 seconds
