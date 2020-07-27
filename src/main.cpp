@@ -3,13 +3,13 @@
 #include <iostream>
 #include <string>
 
-#include "Eigen-3.3/Eigen/Core"
-#include "Eigen-3.3/Eigen/QR"
+//#include "Eigen-3.3/Eigen/Core"
+//#include "Eigen-3.3/Eigen/QR"
 #include "data_types.h"
 #include "helpers.h"
-#include "json.hpp"
 #include "motion_planning.h"
 #include "serialization.h"
+#include "third_party/json.hpp"
 
 // for convenience
 using nlohmann::json;

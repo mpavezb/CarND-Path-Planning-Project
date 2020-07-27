@@ -7,7 +7,7 @@
 
 #include "data_types.h"
 #include "helpers.h"
-#include "json.hpp"
+#include "third_party/json.hpp"
 
 namespace udacity {
 

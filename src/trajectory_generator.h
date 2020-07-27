@@ -7,7 +7,7 @@
 
 #include "data_types.h"
 #include "helpers.h"
-#include "spline.h"
+#include "third_party/spline.h"
 
 namespace udacity {
 

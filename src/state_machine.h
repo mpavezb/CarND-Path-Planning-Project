@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "data_types.h"
-#include "tinyfsm.hpp"
+#include "third_party/tinyfsm.hpp"
 #include "trajectory_generator.h"
 #include "trajectory_validator.h"
 
