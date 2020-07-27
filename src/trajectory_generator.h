@@ -16,10 +16,27 @@ class TrajectoryGenerator {
   void setMap(std::shared_ptr<Map> map) { map_ = map; }
   void setTelemetry(const TelemetryPacket& telemetry) {
     telemetry_ = telemetry;
+    updateCurrentLaneId(telemetry.car_d);
+  }
+  void updateCurrentLaneId(double car_d) {
+    current_lane_id_ = fmax(fmin(2, floor(car_d / lane_width_)), 0);
   }
 
   Trajectory getTrajectoryForAction(TrajectoryAction action) {
-    Trajectory result = generateTrajectory(telemetry_);
+    Trajectory result;
+    switch (action) {
+      case TrajectoryAction::kKeepLane:
+        result = generateKeepLaneTrajectory(telemetry_);
+        break;
+      case TrajectoryAction::kPrepareChangeLaneLeft:
+      case TrajectoryAction::kChangeLaneLeft:
+        result = generateLaneChangeLeftTrajectory(telemetry_);
+        break;
+      case TrajectoryAction::kPrepareChangeLaneRight:
+      case TrajectoryAction::kChangeLaneRight:
+        result = generateLaneChangeRightTrajectory(telemetry_);
+        break;
+    }
     result.action = action;
     return result;
   }
@@ -32,7 +49,8 @@ class TrajectoryGenerator {
    *
    * Note that previous path end point is always further away than the car.
    */
-  SplineAnchors generateSplineAnchors(const TelemetryPacket& telemetry) {
+  SplineAnchors generateSplineAnchors(const TelemetryPacket& telemetry,
+                                      std::uint8_t target_lane_id) {
     SplineAnchors anchors;
     Pose& ref = anchors.reference;
 
@@ -45,6 +63,8 @@ class TrajectoryGenerator {
       ref.yaw = telemetry.car_yaw;
       ref.x = telemetry.car_x;
       ref.y = telemetry.car_y;
+      ref.s = telemetry.car_s;
+      ref.d = telemetry.car_d;
       prev_x = ref.x - cos(ref.yaw);
       prev_y = ref.y - sin(ref.yaw);
     } else {
@@ -54,22 +74,18 @@ class TrajectoryGenerator {
       ref.x = telemetry.last_trajectory.x[prev_path_size - 1];
       ref.y = telemetry.last_trajectory.y[prev_path_size - 1];
       ref.yaw = atan2(ref.y - prev_y, ref.x - prev_x);
+      ref.s = telemetry.end_path_s;
+      ref.d = telemetry.car_d;
     }
     anchors.x = {prev_x, ref.x};
     anchors.y = {prev_y, ref.y};
 
     // Add extra anchors
-    double car_s = telemetry.car_s;
-    if (prev_path_size > 0) {
-      car_s = telemetry.end_path_s;
-    }
-
     int n_missing_anchors = n_anchors_ - 2;
     for (int i = 0; i < n_missing_anchors; ++i) {
       float spacing = look_ahead_distance_ / n_missing_anchors;
-      // TODO: using car_s might be a bug
-      float s = car_s + (i + 1) * spacing;
-      float d = lane_width_ * (0.5 + target_lane_id_);
+      float s = ref.s + (i + 1) * spacing;
+      float d = lane_width_ * (0.5 + target_lane_id);
       std::vector<double> anchor =
           getXY(s, d, map_->waypoints_s, map_->waypoints_x, map_->waypoints_y);
       anchors.x.push_back(anchor[0]);
@@ -136,8 +152,11 @@ class TrajectoryGenerator {
     return result;
   }
 
-  bool isObjectInSameLane(const FusedObject& object) {
-    return left_boundary_d_ < object.d && object.d < right_boundary_d_;
+  bool isObjectInLane(const FusedObject& object, std::uint8_t lane_id) {
+    double center_lane_d = lane_width_ * (0.5 + lane_id);
+    double left_boundary_d = center_lane_d - lane_width_ / 2.0;
+    double right_boundary_d = center_lane_d + lane_width_ / 2.0;
+    return left_boundary_d < object.d && object.d < right_boundary_d;
   }
 
   /**
@@ -150,20 +169,14 @@ class TrajectoryGenerator {
    * Paths are expected to have a fixed length. The generator appends
    * missing points to the previously generated trajectory.
    */
-  Trajectory generateTrajectory(const TelemetryPacket& telemetry) {
-    SplineAnchors anchors = generateSplineAnchors(telemetry);
+  Trajectory generateKeepLaneTrajectory(const TelemetryPacket& telemetry) {
+    SplineAnchors anchors = generateSplineAnchors(telemetry, current_lane_id_);
     SplineAnchors ego_anchors = transformToEgo(anchors);
 
-    // Why is this needed?!
     int prev_size = telemetry.last_trajectory.x.size();
-    double car_s = telemetry.car_s;
-    if (prev_size > 0) {
-      car_s = telemetry.end_path_s;
-    }
-
     bool too_close = false;
     for (const auto object : telemetry.sensor_fusion) {
-      if (isObjectInSameLane(object)) {
+      if (isObjectInLane(object, current_lane_id_)) {
         double speed = sqrt(object.vx * object.vx + object.vy * object.vy);
         double object_s = object.s;
 
@@ -173,17 +186,12 @@ class TrajectoryGenerator {
           object_s += prev_size * speed / path_execution_frequency_;
         }
 
+        double car_s = anchors.reference.s;
         double safety_gap = 30.0;
         bool is_object_in_front = car_s < object_s;
         bool is_object_near = abs(car_s - object_s) < safety_gap;
         if (is_object_in_front && is_object_near) {
           too_close = true;
-          if (target_lane_id_ > 0) {
-            target_lane_id_ = 0;  // 1=left, 2=middle, 3=right
-            center_lane_d_ = lane_width_ * (0.5 + target_lane_id_);
-            left_boundary_d_ = center_lane_d_ - lane_width_ / 2.0;
-            right_boundary_d_ = center_lane_d_ + lane_width_ / 2.0;
-          }
           break;
         }
       }
@@ -200,6 +208,22 @@ class TrajectoryGenerator {
     return interpolateMissingPoints(telemetry.last_trajectory, ego_anchors);
   }
 
+  Trajectory generateLaneChangeLeftTrajectory(
+      const TelemetryPacket& telemetry) {
+    std::uint8_t target_lane_id = fmax(0, current_lane_id_ - 1);
+    SplineAnchors anchors = generateSplineAnchors(telemetry, target_lane_id);
+    SplineAnchors ego_anchors = transformToEgo(anchors);
+    return interpolateMissingPoints(telemetry.last_trajectory, ego_anchors);
+  }
+
+  Trajectory generateLaneChangeRightTrajectory(
+      const TelemetryPacket& telemetry) {
+    std::uint8_t target_lane_id = fmin(2, current_lane_id_ + 1);
+    SplineAnchors anchors = generateSplineAnchors(telemetry, target_lane_id);
+    SplineAnchors ego_anchors = transformToEgo(anchors);
+    return interpolateMissingPoints(telemetry.last_trajectory, ego_anchors);
+  }
+
  private:
   // Input Data
   std::shared_ptr<Map> map_;
@@ -209,13 +233,10 @@ class TrajectoryGenerator {
   float lane_width_{4.0F};
 
   // target
-  std::uint8_t target_lane_id_{1};  // 1=left, 2=middle, 3=right
+  std::uint8_t current_lane_id_{1};  // 0=left, 1=middle, 2=right
+  float current_velocity_mps_{0.0F};
   float target_velocity_mph_{49.5F};
   float target_velocity_mps_{target_velocity_mph_ / 2.237F};
-  float current_velocity_mps_{0.0F};
-  double center_lane_d_{lane_width_ * (0.5 + target_lane_id_)};
-  double left_boundary_d_{center_lane_d_ - lane_width_ / 2.0};
-  double right_boundary_d_{center_lane_d_ + lane_width_ / 2.0};
 
   // algorithms
   int path_size_{50};

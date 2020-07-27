@@ -8,11 +8,13 @@ namespace udacity {
 class TrajectoryValidator {
  public:
   bool isTrajectoryValid(const Trajectory &trajectory) {
-    if (trajectory.action == TrajectoryAction::kKeepLane) return true;
-    return false;
+    // if (trajectory.action == TrajectoryAction::kKeepLane) return true;
+    return true;
   }
   double getTrajectoryCost(const Trajectory &trajectory) {
-    if (trajectory.action == TrajectoryAction::kKeepLane) return 0.0;
+    if (trajectory.action == TrajectoryAction::kPrepareChangeLaneLeft)
+      return 0.0;
+    if (trajectory.action == TrajectoryAction::kKeepLane) return 0.5;
     return 1.0;
   }
 };

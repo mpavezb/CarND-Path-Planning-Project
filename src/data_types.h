@@ -18,6 +18,8 @@ struct Pose {
   double x;
   double y;
   double yaw;
+  double s;
+  double d;
 };
 
 struct SplineAnchors {
