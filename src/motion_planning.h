@@ -8,6 +8,7 @@
 #include "data_types.h"
 #include "state_machine.h"
 #include "trajectory_generator.h"
+#include "trajectory_validator.h"
 
 namespace udacity {
 
@@ -16,29 +17,36 @@ class MotionPlanning {
   MotionPlanning(const Map& map) {
     map_ = std::shared_ptr<Map>(new Map(map));
     generator_ =
-        std::unique_ptr<TrajectoryGenerator>(new TrajectoryGenerator());
+        std::shared_ptr<TrajectoryGenerator>(new TrajectoryGenerator());
+    validator_ =
+        std::shared_ptr<TrajectoryValidator>(new TrajectoryValidator());
     generator_->setMap(map_);
+
+    // Not good, but seems like the only way to share data with the tiny FSM
+    // is through the payload.
+    sm_event_.functions.generator = generator_;
+    sm_event_.functions.validator = validator_;
+    sm_event_.output =
+        std::shared_ptr<UpdateEvent::Output>(new UpdateEvent::Output());
 
     StateMachine::StateMachine::start();
   }
 
   void setTelemetry(const TelemetryPacket& telemetry) {
     telemetry_ = telemetry;
+    generator_->setTelemetry(telemetry);
   }
 
-  void step() {
-    UpdateEvent event;
-    StateMachine::dispatch(event);
-  }
+  void step() { StateMachine::dispatch(sm_event_); }
 
-  Trajectory getTrajectory() {
-    return generator_->generateTrajectory(telemetry_);
-  }
+  Trajectory getTrajectory() { return sm_event_.output->selected_trajectory; }
 
  private:
+  UpdateEvent sm_event_;
   TelemetryPacket telemetry_;
   std::shared_ptr<Map> map_;
-  std::unique_ptr<TrajectoryGenerator> generator_;
+  std::shared_ptr<TrajectoryGenerator> generator_;
+  std::shared_ptr<TrajectoryValidator> validator_;
 };
 
 }  // namespace udacity

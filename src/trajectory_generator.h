@@ -14,9 +14,12 @@ namespace udacity {
 class TrajectoryGenerator {
  public:
   void setMap(std::shared_ptr<Map> map) { map_ = map; }
+  void setTelemetry(const TelemetryPacket& telemetry) {
+    telemetry_ = telemetry;
+  }
 
   Trajectory getTrajectoryForAction(TrajectoryAction action) {
-    Trajectory result;
+    Trajectory result = generateTrajectory(telemetry_);
     result.action = action;
     return result;
   }
@@ -192,14 +195,17 @@ class TrajectoryGenerator {
       // TODO: increment velocity according to acceleration
       current_velocity_mps_ += velocity_delta_mps_;
     }
-    std::cout << "speed: " << current_velocity_mps_ << std::endl;
+    // std::cout << "speed: " << current_velocity_mps_ << std::endl;
 
     return interpolateMissingPoints(telemetry.last_trajectory, ego_anchors);
   }
 
  private:
-  // environment
+  // Input Data
   std::shared_ptr<Map> map_;
+  TelemetryPacket telemetry_;
+
+  // environment
   float lane_width_{4.0F};
 
   // target

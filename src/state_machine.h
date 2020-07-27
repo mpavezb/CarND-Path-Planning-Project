@@ -16,8 +16,19 @@ namespace udacity {
 // maybe: PredictionUpdateEvent;
 // maybe: StepEvent;
 struct UpdateEvent : public tinyfsm::Event {
-  Map map;
-  PredictionData predictions;
+  struct Functions {
+    std::shared_ptr<TrajectoryGenerator> generator;
+    std::shared_ptr<TrajectoryValidator> validator;
+  };
+  struct Input {
+    PredictionData predictions;
+  };
+  struct Output {
+    Trajectory selected_trajectory;
+  };
+  Functions functions;
+  Input input;
+  std::shared_ptr<Output> output;
 };
 
 // tinysfm States
@@ -33,8 +44,10 @@ class StateMachine : public tinyfsm::Fsm<StateMachine> {
   void react(tinyfsm::Event const &) {}
 
   virtual std::vector<TrajectoryAction> getValidActions() = 0;
+  virtual bool isActionActive(TrajectoryAction) = 0;
 
   void executeTransition(TrajectoryAction action) {
+    if (isActionActive(action)) return;
     switch (action) {
       case TrajectoryAction::kKeepLane:
         transit<KeepLaneState>([] {});
@@ -54,35 +67,49 @@ class StateMachine : public tinyfsm::Fsm<StateMachine> {
     }
   }
 
-  void react(UpdateEvent const &) {
-    std::vector<Trajectory> candidates;
-    // for (auto action : getValidActions()) {
-    //   candidates.push_back(generator_.getTrajectoryForAction(action));
-    // }
+  void react(UpdateEvent const &event) {
+    auto generator = event.functions.generator;
+    auto validator = event.functions.validator;
 
-    // std::set<Trajectory> valid_trajectories;
-    // for (auto &&trajectory : candidates) {
-    //   if (validator_.isTrajectoryValid(trajectory)) {
-    //     trajectory.cost = validator_.getTrajectoryCost(trajectory);
-    //     valid_trajectories.insert(trajectory);
-    //   }
-    // }
-    // if (valid_trajectories.empty()) {
-    //   std::cerr
-    //       << "[StateMachine]: There are no valid trajectories! Skipping
-    //       cycle"
-    //       << std::endl;
-    //   return;
-    // }
-    // auto best_trajectory = *valid_trajectories.begin();
-    // auto best_action = best_trajectory.action;
-    // executeTransition(best_action);
+    std::vector<Trajectory> candidates;
+    for (auto action : getValidActions()) {
+      auto trajectory = generator->getTrajectoryForAction(action);
+      candidates.push_back(trajectory);
+      // std::cout
+      //     << "[StateMachine]: - Generated candidate trajectory for action: "
+      //     << static_cast<int>(action)
+      //     << " with # points: " << trajectory.x.size() << std::endl;
+    }
+
+    std::set<Trajectory> valid_trajectories;
+    for (auto &&trajectory : candidates) {
+      if (validator->isTrajectoryValid(trajectory)) {
+        trajectory.cost = validator->getTrajectoryCost(trajectory);
+        valid_trajectories.insert(trajectory);
+      }
+    }
+    if (valid_trajectories.empty()) {
+      std::cerr
+          << "[StateMachine]: There are no valid trajectories! Skipping cycle"
+          << std::endl;
+      return;
+    }
+    auto best_trajectory = *valid_trajectories.begin();
+    auto best_action = best_trajectory.action;
+    // std::cout << "[StateMachine]: Using trajectory for action: "
+    //           << static_cast<int>(best_action)
+    //           << " with # points: " << best_trajectory.x.size() << std::endl;
+    event.output->selected_trajectory = best_trajectory;
+    executeTransition(best_action);
   };
   virtual void entry(void) {}
   virtual void exit(void) {}
 };
 
 class KeepLaneState : public StateMachine {
+  bool isActionActive(TrajectoryAction action) override {
+    return action == TrajectoryAction::kKeepLane;
+  }
   std::vector<TrajectoryAction> getValidActions() override {
     return {TrajectoryAction::kKeepLane,
             TrajectoryAction::kPrepareChangeLaneLeft,
@@ -93,6 +120,9 @@ class KeepLaneState : public StateMachine {
   }
 };
 class PrepareLaneChangeLeftState : public StateMachine {
+  bool isActionActive(TrajectoryAction action) override {
+    return action == TrajectoryAction::kPrepareChangeLaneLeft;
+  }
   std::vector<TrajectoryAction> getValidActions() override {
     return {TrajectoryAction::kKeepLane,
             TrajectoryAction::kPrepareChangeLaneLeft,
@@ -104,6 +134,9 @@ class PrepareLaneChangeLeftState : public StateMachine {
   }
 };
 class PrepareLaneChangeRightState : public StateMachine {
+  bool isActionActive(TrajectoryAction action) override {
+    return action == TrajectoryAction::kPrepareChangeLaneRight;
+  }
   std::vector<TrajectoryAction> getValidActions() override {
     return {TrajectoryAction::kKeepLane,
             TrajectoryAction::kPrepareChangeLaneRight,
@@ -115,6 +148,9 @@ class PrepareLaneChangeRightState : public StateMachine {
   }
 };
 class LaneChangeLeftState : public StateMachine {
+  bool isActionActive(TrajectoryAction action) override {
+    return action == TrajectoryAction::kChangeLaneLeft;
+  }
   std::vector<TrajectoryAction> getValidActions() override {
     return {TrajectoryAction::kKeepLane, TrajectoryAction::kChangeLaneLeft};
   }
@@ -124,6 +160,9 @@ class LaneChangeLeftState : public StateMachine {
   }
 };
 class LaneChangeRightState : public StateMachine {
+  bool isActionActive(TrajectoryAction action) override {
+    return action == TrajectoryAction::kChangeLaneRight;
+  }
   std::vector<TrajectoryAction> getValidActions() override {
     return {TrajectoryAction::kKeepLane, TrajectoryAction::kChangeLaneRight};
   }
