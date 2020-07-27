@@ -26,9 +26,23 @@ struct SplineAnchors {
   Pose reference;
 };
 
+enum class TrajectoryAction : std::uint8_t {
+  kKeepLane,
+  kChangeLaneLeft,
+  kChangeLaneRight,
+  kPrepareChangeLaneLeft,
+  kPrepareChangeLaneRight
+};
+
 struct Trajectory {
   Path x;
   Path y;
+  TrajectoryAction action;
+  double cost;
+
+  bool operator<(const Trajectory& other) const {
+    return this->cost < other.cost;
+  }
 };
 
 struct Map {
