@@ -1,7 +1,8 @@
-#ifndef PLANNER_H
-#define PLANNER_H
+#ifndef TRAJECTORY_GENERATOR_H_
+#define TRAJECTORY_GENERATOR_H_
 
 #include <iostream>
+#include <memory>
 #include <vector>
 
 #include "data_types.h"
@@ -10,9 +11,15 @@
 
 namespace udacity {
 
-class MotionPlanner {
+class TrajectoryGenerator {
  public:
-  MotionPlanner(const Map& map) : map_(map) {}
+  void setMap(std::shared_ptr<Map> map) { map_ = map; }
+
+  Trajectory getTrajectoryForAction(TrajectoryAction action) {
+    Trajectory result;
+    result.action = action;
+    return result;
+  }
 
   /**
    * Generate spline anchors for interpolation.
@@ -61,7 +68,7 @@ class MotionPlanner {
       float s = car_s + (i + 1) * spacing;
       float d = lane_width_ * (0.5 + target_lane_id_);
       std::vector<double> anchor =
-          getXY(s, d, map_.waypoints_s, map_.waypoints_x, map_.waypoints_y);
+          getXY(s, d, map_->waypoints_s, map_->waypoints_x, map_->waypoints_y);
       anchors.x.push_back(anchor[0]);
       anchors.y.push_back(anchor[1]);
     }
@@ -192,7 +199,7 @@ class MotionPlanner {
 
  private:
   // environment
-  Map map_;
+  std::shared_ptr<Map> map_;
   float lane_width_{4.0F};
 
   // target
@@ -214,4 +221,4 @@ class MotionPlanner {
 
 }  // namespace udacity
 
-#endif  // PLANNER_H
+#endif  // TRAJECTORY_GENERATOR_H_

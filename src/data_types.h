@@ -87,6 +87,8 @@ struct TelemetryPacket {
   double end_path_d;
 };
 
+struct PredictionData {};
+
 }  // namespace udacity
 
 #endif  // DATA_TYPES_H
