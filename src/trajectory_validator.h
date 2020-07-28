@@ -21,7 +21,8 @@ class TrajectoryValidator {
 
   bool isTrajectoryValid(const Trajectory &trajectory) { return true; }
 
-  double getTrajectoryCost(const Trajectory &trajectory) {
+  double getTrajectoryCost(const Trajectory &trajectory,
+                           const PredictionData &predictions) {
     if (trajectory.action == TrajectoryAction::kPrepareChangeLaneRight)
       return 0.0;
     if (trajectory.action == TrajectoryAction::kKeepLane) return 0.5;

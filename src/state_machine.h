@@ -73,7 +73,8 @@ class StateMachine : public tinyfsm::Fsm<StateMachine> {
 
     std::vector<Trajectory> candidates;
     for (auto action : getValidActions()) {
-      auto trajectory = generator->getTrajectoryForAction(action);
+      auto trajectory =
+          generator->getTrajectoryForAction(action, event.input.predictions);
       candidates.push_back(trajectory);
       // std::cout
       //     << "[StateMachine]: - Generated candidate trajectory for action: "
@@ -84,7 +85,8 @@ class StateMachine : public tinyfsm::Fsm<StateMachine> {
     std::set<Trajectory> valid_trajectories;
     for (auto &&trajectory : candidates) {
       if (validator->isTrajectoryValid(trajectory)) {
-        trajectory.cost = validator->getTrajectoryCost(trajectory);
+        trajectory.cost =
+            validator->getTrajectoryCost(trajectory, event.input.predictions);
         valid_trajectories.insert(trajectory);
       }
     }

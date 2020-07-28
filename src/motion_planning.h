@@ -33,8 +33,11 @@ class MotionPlanning {
   }
 
   void setTelemetry(const TelemetryPacket& telemetry) {
-    telemetry_ = telemetry;
     generator_->setTelemetry(telemetry);
+  }
+
+  void setPredictions(const PredictionData& predictions) {
+    sm_event_.input.predictions = predictions;
   }
 
   void step() { StateMachine::dispatch(sm_event_); }
@@ -43,7 +46,6 @@ class MotionPlanning {
 
  private:
   UpdateEvent sm_event_;
-  TelemetryPacket telemetry_;
   std::shared_ptr<Map> map_;
   std::shared_ptr<TrajectoryGenerator> generator_;
   std::shared_ptr<TrajectoryValidator> validator_;

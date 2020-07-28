@@ -89,7 +89,10 @@ struct TelemetryPacket {
   double end_path_d;
 };
 
-struct PredictionData {};
+struct PredictionData {
+  // raw data meanwhile
+  SensorFusionList sensor_fusion;
+};
 
 }  // namespace udacity
 

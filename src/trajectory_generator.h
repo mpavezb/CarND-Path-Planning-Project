@@ -22,19 +22,20 @@ class TrajectoryGenerator {
     current_lane_id_ = fmax(fmin(2, floor(car_d / lane_width_)), 0);
   }
 
-  Trajectory getTrajectoryForAction(TrajectoryAction action) {
+  Trajectory getTrajectoryForAction(TrajectoryAction action,
+                                    const PredictionData& predictions) {
     Trajectory result;
     switch (action) {
       case TrajectoryAction::kKeepLane:
-        result = generateKeepLaneTrajectory(telemetry_);
+        result = generateKeepLaneTrajectory(telemetry_, predictions);
         break;
       case TrajectoryAction::kPrepareChangeLaneLeft:
       case TrajectoryAction::kChangeLaneLeft:
-        result = generateLaneChangeLeftTrajectory(telemetry_);
+        result = generateLaneChangeLeftTrajectory(telemetry_, predictions);
         break;
       case TrajectoryAction::kPrepareChangeLaneRight:
       case TrajectoryAction::kChangeLaneRight:
-        result = generateLaneChangeRightTrajectory(telemetry_);
+        result = generateLaneChangeRightTrajectory(telemetry_, predictions);
         break;
     }
     result.action = action;
@@ -169,13 +170,14 @@ class TrajectoryGenerator {
    * Paths are expected to have a fixed length. The generator appends
    * missing points to the previously generated trajectory.
    */
-  Trajectory generateKeepLaneTrajectory(const TelemetryPacket& telemetry) {
+  Trajectory generateKeepLaneTrajectory(const TelemetryPacket& telemetry,
+                                        const PredictionData& predictions) {
     SplineAnchors anchors = generateSplineAnchors(telemetry, current_lane_id_);
     SplineAnchors ego_anchors = transformToEgo(anchors);
 
     int prev_size = telemetry.last_trajectory.x.size();
     bool too_close = false;
-    for (const auto object : telemetry.sensor_fusion) {
+    for (const auto object : predictions.sensor_fusion) {
       if (isObjectInLane(object, current_lane_id_)) {
         double speed = sqrt(object.vx * object.vx + object.vy * object.vy);
         double object_s = object.s;
@@ -208,16 +210,16 @@ class TrajectoryGenerator {
     return interpolateMissingPoints(telemetry.last_trajectory, ego_anchors);
   }
 
-  Trajectory generateLaneChangeLeftTrajectory(
-      const TelemetryPacket& telemetry) {
+  Trajectory generateLaneChangeLeftTrajectory(const TelemetryPacket& telemetry,
+                                              const PredictionData&) {
     std::uint8_t target_lane_id = fmax(0, current_lane_id_ - 1);
     SplineAnchors anchors = generateSplineAnchors(telemetry, target_lane_id);
     SplineAnchors ego_anchors = transformToEgo(anchors);
     return interpolateMissingPoints(telemetry.last_trajectory, ego_anchors);
   }
 
-  Trajectory generateLaneChangeRightTrajectory(
-      const TelemetryPacket& telemetry) {
+  Trajectory generateLaneChangeRightTrajectory(const TelemetryPacket& telemetry,
+                                               const PredictionData&) {
     std::uint8_t target_lane_id = fmin(2, current_lane_id_ + 1);
     SplineAnchors anchors = generateSplineAnchors(telemetry, target_lane_id);
     SplineAnchors ego_anchors = transformToEgo(anchors);

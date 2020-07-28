@@ -8,6 +8,7 @@
 #include "data_types.h"
 #include "helpers.h"
 #include "motion_planning.h"
+#include "prediction.h"
 #include "serialization.h"
 #include "third_party/json.hpp"
 
@@ -24,10 +25,12 @@ int main() {
   Map map = MapReader::readMap(map_file_);
   map.max_s = max_s;
   MotionPlanning motion_planning{map};
+  Prediction prediction{};
 
   uWS::Hub h;
-  h.onMessage([&motion_planning](uWS::WebSocket<uWS::SERVER> ws, char *data,
-                                 size_t length, uWS::OpCode opCode) {
+  h.onMessage([&motion_planning, &prediction](uWS::WebSocket<uWS::SERVER> ws,
+                                              char *data, size_t length,
+                                              uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message
     // event. The 4 signifies a websocket message The 2 signifies a
     // websocket event
@@ -38,9 +41,16 @@ int main() {
         string event = j[0].get<string>();
         if (event == "telemetry") {
           TelemetryPacket telemetry = j[1];
+
+          prediction.setTelemetry(telemetry);
+          prediction.step();
+
           motion_planning.setTelemetry(telemetry);
+          motion_planning.setPredictions(prediction.getPredictions());
           motion_planning.step();
+
           Trajectory trajectory = motion_planning.getTrajectory();
+
           json msgJson;
           msgJson["next_x"] = trajectory.x;
           msgJson["next_y"] = trajectory.y;
