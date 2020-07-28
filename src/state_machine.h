@@ -85,7 +85,7 @@ class StateMachine : public tinyfsm::Fsm<StateMachine> {
     std::set<Trajectory> valid_trajectories;
     for (auto &&trajectory : candidates) {
       if (validator->isTrajectoryValid(trajectory)) {
-        trajectory.cost =
+        trajectory.characteristics.cost =
             validator->getTrajectoryCost(trajectory, event.input.predictions);
         valid_trajectories.insert(trajectory);
       }
@@ -97,7 +97,7 @@ class StateMachine : public tinyfsm::Fsm<StateMachine> {
       return;
     }
     auto best_trajectory = *valid_trajectories.begin();
-    auto best_action = best_trajectory.action;
+    auto best_action = best_trajectory.characteristics.action;
     // std::cout << "[StateMachine]: Using trajectory for action: "
     //           << static_cast<int>(best_action)
     //           << " with # points: " << best_trajectory.x.size() << std::endl;

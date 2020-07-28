@@ -38,7 +38,7 @@ class TrajectoryGenerator {
         result = generateLaneChangeRightTrajectory(telemetry_, predictions);
         break;
     }
-    result.action = action;
+    result.characteristics.action = action;
     return result;
   }
 
@@ -129,7 +129,8 @@ class TrajectoryGenerator {
    * Points are evenly spaced in x axis, so that desired speed is kept.
    */
   Trajectory interpolateMissingPoints(const Trajectory& baseline,
-                                      const SplineAnchors& ego_anchors) {
+                                      const SplineAnchors& ego_anchors,
+                                      double speed) {
     Trajectory result = baseline;
     int missing_points = path_size_ - baseline.x.size();
 
@@ -139,7 +140,7 @@ class TrajectoryGenerator {
     double target_x = look_ahead_distance_;
     double target_y = gen(target_x);
     double target_dist = distance(0, 0, target_x, target_y);
-    double N = target_dist * path_execution_frequency_ / current_velocity_mps_;
+    double N = target_dist * path_execution_frequency_ / speed;
 
     for (int i = 0; i < missing_points; ++i) {
       Point ego_point;
@@ -150,6 +151,7 @@ class TrajectoryGenerator {
       result.x.push_back(map_point.x);
       result.y.push_back(map_point.y);
     }
+    result.characteristics.speed = speed;
     return result;
   }
 
@@ -198,16 +200,28 @@ class TrajectoryGenerator {
         }
       }
     }
-    if (too_close) {
-      // TODO: decrease velocity according to computed deceleration
-      current_velocity_mps_ -= velocity_delta_mps_;
-    } else if (current_velocity_mps_ < target_velocity_mps_) {
-      // TODO: increment velocity according to acceleration
-      current_velocity_mps_ += velocity_delta_mps_;
-    }
-    // std::cout << "speed: " << current_velocity_mps_ << std::endl;
 
-    return interpolateMissingPoints(telemetry.last_trajectory, ego_anchors);
+    double speed = getSpeedForecast();
+    if (too_close) {
+      speed = current_speed_ - speed_brake_delta_mps_;
+    }
+    return interpolateMissingPoints(telemetry.last_trajectory, ego_anchors,
+                                    speed);
+  }
+
+  void updateCurrentSpeed(double speed) { current_speed_ = speed; }
+
+  double getSpeedForecast() {
+    // TODO: update speed according to acceleration/braking
+    // TODO: speed from telemetry is not reliable. Why?
+    // double speed = telemetry.car_speed;
+    double speed = current_speed_;
+    if (speed < target_velocity_mps_) {
+      speed += speed_control_delta_mps_;
+    } else {
+      speed -= speed_control_delta_mps_;
+    }
+    return speed;
   }
 
   Trajectory generateLaneChangeLeftTrajectory(const TelemetryPacket& telemetry,
@@ -215,7 +229,8 @@ class TrajectoryGenerator {
     std::uint8_t target_lane_id = fmax(0, current_lane_id_ - 1);
     SplineAnchors anchors = generateSplineAnchors(telemetry, target_lane_id);
     SplineAnchors ego_anchors = transformToEgo(anchors);
-    return interpolateMissingPoints(telemetry.last_trajectory, ego_anchors);
+    return interpolateMissingPoints(telemetry.last_trajectory, ego_anchors,
+                                    telemetry.car_speed);
   }
 
   Trajectory generateLaneChangeRightTrajectory(const TelemetryPacket& telemetry,
@@ -223,7 +238,8 @@ class TrajectoryGenerator {
     std::uint8_t target_lane_id = fmin(2, current_lane_id_ + 1);
     SplineAnchors anchors = generateSplineAnchors(telemetry, target_lane_id);
     SplineAnchors ego_anchors = transformToEgo(anchors);
-    return interpolateMissingPoints(telemetry.last_trajectory, ego_anchors);
+    return interpolateMissingPoints(telemetry.last_trajectory, ego_anchors,
+                                    telemetry.car_speed);
   }
 
  private:
@@ -233,10 +249,10 @@ class TrajectoryGenerator {
 
   // environment
   float lane_width_{4.0F};
+  // float speed_limit_{50.0 / 2.237F};
 
   // target
   std::uint8_t current_lane_id_{1};  // 0=left, 1=middle, 2=right
-  float current_velocity_mps_{0.0F};
   float target_velocity_mph_{49.5F};
   float target_velocity_mps_{target_velocity_mph_ / 2.237F};
 
@@ -245,8 +261,11 @@ class TrajectoryGenerator {
   int n_anchors_{5};
   float path_execution_frequency_{1 / .02F};
   float look_ahead_distance_{90.0F};
-  float velocity_delta_mps_{0.1F};
-};
+
+  float current_speed_{0.0F};
+  float speed_control_delta_mps_{0.1F};
+  float speed_brake_delta_mps_{0.3F};
+};  // namespace udacity
 
 }  // namespace udacity
 

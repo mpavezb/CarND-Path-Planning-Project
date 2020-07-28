@@ -36,14 +36,19 @@ enum class TrajectoryAction : std::uint8_t {
   kPrepareChangeLaneRight
 };
 
+struct TrajectoryCharacteristics {
+  TrajectoryAction action;
+  double speed;
+  double cost;
+};
+
 struct Trajectory {
   Path x;
   Path y;
-  TrajectoryAction action;
-  double cost;
+  TrajectoryCharacteristics characteristics;
 
   bool operator<(const Trajectory& other) const {
-    return this->cost < other.cost;
+    return this->characteristics.cost < other.characteristics.cost;
   }
 };
 
@@ -76,7 +81,7 @@ struct TelemetryPacket {
   double car_s;
   double car_d;
   double car_yaw;
-  double car_speed;
+  double car_speed;  // mps!
 
   // A list of all other cars on the same side the road.
   SensorFusionList sensor_fusion;

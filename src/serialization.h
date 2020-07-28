@@ -62,7 +62,7 @@ void from_json(const nlohmann::json& j, TelemetryPacket& packet) {
   packet.car_s = j["s"];
   packet.car_d = j["d"];
   packet.car_yaw = deg2rad(j["yaw"]);
-  packet.car_speed = j["speed"];
+  packet.car_speed = ((double)j["speed"]) / 2.237;
   packet.last_trajectory.x = j["previous_path_x"].get<Path>();
   packet.last_trajectory.y = j["previous_path_y"].get<Path>();
   packet.sensor_fusion = j["sensor_fusion"].get<SensorFusionList>();

@@ -40,7 +40,11 @@ class MotionPlanning {
     sm_event_.input.predictions = predictions;
   }
 
-  void step() { StateMachine::dispatch(sm_event_); }
+  void step() {
+    StateMachine::dispatch(sm_event_);
+    generator_->updateCurrentSpeed(
+        sm_event_.output->selected_trajectory.characteristics.speed);
+  }
 
   Trajectory getTrajectory() { return sm_event_.output->selected_trajectory; }
 
