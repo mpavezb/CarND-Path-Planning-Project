@@ -87,6 +87,10 @@ class StateMachine : public tinyfsm::Fsm<StateMachine> {
       if (validator->isTrajectoryValid(trajectory)) {
         trajectory.characteristics.cost =
             validator->getTrajectoryCost(trajectory, event.input.predictions);
+        // std::cout << "[StateMachine]: - Trajectory cost for action '"
+        //           << trajectory.characteristics.action
+        //           << "' is: " << trajectory.characteristics.cost <<
+        //           std::endl;
         valid_trajectories.insert(trajectory);
       }
     }

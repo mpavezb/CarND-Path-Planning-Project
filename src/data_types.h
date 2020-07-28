@@ -1,6 +1,7 @@
 #ifndef DATA_TYPES_H
 #define DATA_TYPES_H
 
+#include <iostream>
 #include <string>
 #include <vector>
 
@@ -40,7 +41,8 @@ struct TrajectoryCharacteristics {
   TrajectoryAction action;
   double speed;
   double cost;
-  int intended_lane_id;
+  std::uint8_t intended_lane_id;  // expected lane id after successful maneuver.
+  std::uint8_t endpoint_lane_id;  // Lane id for this trajectory's endpoint.
 };
 
 struct Trajectory {
@@ -96,8 +98,8 @@ struct TelemetryPacket {
 };
 
 struct PredictionData {
-  // raw data meanwhile
   SensorFusionList sensor_fusion;
+  std::vector<double> lane_speeds;  // Refactor
 };
 
 struct EnvironmentData {

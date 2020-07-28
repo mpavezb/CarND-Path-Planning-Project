@@ -204,6 +204,7 @@ class TrajectoryGenerator {
     Trajectory trajectory = interpolateMissingPoints(telemetry_.last_trajectory,
                                                      ego_anchors, speed);
     trajectory.characteristics.intended_lane_id = ego_.lane_id;
+    trajectory.characteristics.endpoint_lane_id = ego_.lane_id;
     return trajectory;
   }
 
@@ -224,9 +225,12 @@ class TrajectoryGenerator {
     std::uint8_t intended_lane_id = fmax(0, ego_.lane_id - 1);
     SplineAnchors anchors = generateSplineAnchors(intended_lane_id);
     SplineAnchors ego_anchors = transformToEgo(anchors);
+    double speed = getSpeedForecast();
     Trajectory trajectory = interpolateMissingPoints(telemetry_.last_trajectory,
-                                                     ego_anchors, ego_.speed);
+                                                     ego_anchors, speed);
     trajectory.characteristics.intended_lane_id = intended_lane_id;
+    trajectory.characteristics.endpoint_lane_id =
+        ego_.lane_id;  // TODO: compute
     return trajectory;
   }
 
@@ -234,9 +238,12 @@ class TrajectoryGenerator {
     std::uint8_t intended_lane_id = fmin(2, ego_.lane_id + 1);
     SplineAnchors anchors = generateSplineAnchors(intended_lane_id);
     SplineAnchors ego_anchors = transformToEgo(anchors);
+    double speed = getSpeedForecast();
     Trajectory trajectory = interpolateMissingPoints(telemetry_.last_trajectory,
-                                                     ego_anchors, ego_.speed);
+                                                     ego_anchors, speed);
     trajectory.characteristics.intended_lane_id = intended_lane_id;
+    trajectory.characteristics.endpoint_lane_id =
+        ego_.lane_id;  // TODO: compute
     return trajectory;
   }
 

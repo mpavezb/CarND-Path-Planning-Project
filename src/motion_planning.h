@@ -44,6 +44,7 @@ class MotionPlanning {
 
   void setPredictions(const PredictionData& predictions) {
     sm_event_.input.predictions = predictions;
+    validator_->setPredictionData(predictions);
   }
 
   void step() {
