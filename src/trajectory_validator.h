@@ -103,7 +103,29 @@ class TrajectoryValidator {
     cost_functions.emplace_back(new InefficientLaneCostFunction());
   }
 
-  bool isTrajectoryValid(const Trajectory &trajectory) { return true; }
+  bool isActionLaneInRoad(const Trajectory &trajectory) {
+    if (ego_.lane_id == 0) {
+      if (trajectory.characteristics.action ==
+              TrajectoryAction::kPrepareChangeLaneLeft ||
+          trajectory.characteristics.action ==
+              TrajectoryAction::kChangeLaneLeft)
+        return false;
+    }
+    if (ego_.lane_id == 2) {
+      if (trajectory.characteristics.action ==
+              TrajectoryAction::kPrepareChangeLaneRight ||
+          trajectory.characteristics.action ==
+              TrajectoryAction::kChangeLaneRight)
+        return false;
+    }
+    return true;
+  }
+
+  bool isTrajectoryValid(const Trajectory &trajectory) {
+    bool is_valid = true;
+    is_valid = is_valid and isActionLaneInRoad(trajectory);
+    return is_valid;
+  }
 
   double getTrajectoryCost(const Trajectory &trajectory,
                            const PredictionData &predictions) {
