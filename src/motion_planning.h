@@ -32,8 +32,14 @@ class MotionPlanning {
     StateMachine::StateMachine::start();
   }
 
+  void updateEgoLaneId(const TelemetryPacket& telemetry) {
+    ego_.lane_id =
+        fmax(fmin(2, floor(telemetry.car_d / environment_.lane_width)), 0);
+  }
+
   void setTelemetry(const TelemetryPacket& telemetry) {
     generator_->setTelemetry(telemetry);
+    updateEgoLaneId(telemetry);
   }
 
   void setPredictions(const PredictionData& predictions) {
@@ -41,15 +47,20 @@ class MotionPlanning {
   }
 
   void step() {
+    generator_->setEgoStatus(ego_);
+    validator_->setEgoStatus(ego_);
     StateMachine::dispatch(sm_event_);
-    generator_->updateCurrentSpeed(
-        sm_event_.output->selected_trajectory.characteristics.speed);
+    selected_trajectory_ = sm_event_.output->selected_trajectory;
+    ego_.speed = selected_trajectory_.characteristics.speed;
   }
 
-  Trajectory getTrajectory() { return sm_event_.output->selected_trajectory; }
+  Trajectory getTrajectory() { return selected_trajectory_; }
 
  private:
+  EnvironmentData environment_;
+  EgoStatus ego_;
   UpdateEvent sm_event_;
+  Trajectory selected_trajectory_;
   std::shared_ptr<Map> map_;
   std::shared_ptr<TrajectoryGenerator> generator_;
   std::shared_ptr<TrajectoryValidator> validator_;

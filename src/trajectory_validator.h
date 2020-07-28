@@ -14,32 +14,36 @@ class CostFunction {
    * Returns cost in range [0,1]. Good trajectories yield lower cost.
    */
   virtual double getCost(const Trajectory &, const PredictionData &) = 0;
+
+ protected:
+  double kFunctionWeight = 1.0;
 };
 
+/**
+ * Implements a 3-piecewise linear cost function based on the intended speed,
+ * the target speed a
+ */
 class SpeedCostFunction : public CostFunction {
  public:
   double getCost(const Trajectory &trajectory,
-                 const PredictionData &predictions) override {
-    return 0;
-    // ARGS
-    double current_speed = 0;
-    // PARAMS
-    double speed_buffer = 2;
-    double stop_cost = 0.8;
-    double speed_limit = 22.0;  // TODO
-    double weight = 1.0;
-
+                 const PredictionData &) override {
     double cost = 0;
-    double best_speed = speed_limit - speed_buffer;
-    if (current_speed < best_speed) {
-      cost = stop_cost * (best_speed - current_speed) / best_speed;
-    } else if (best_speed < current_speed && current_speed < speed_limit) {
-      cost = (current_speed - best_speed) / speed_buffer;
+    double speed = trajectory.characteristics.speed;
+    if (speed < kBestSpeed) {
+      cost = kStopCost * (kBestSpeed - speed) / kBestSpeed;
+    } else if (kBestSpeed < speed && speed < kSpeedLimit) {
+      cost = (speed - kBestSpeed) / kSpeedBuffer;
     } else {
       cost = 1;
     }
-    return cost * weight;
+    return cost * kFunctionWeight;
   }
+
+ private:
+  double kStopCost = 0.8;
+  double kSpeedBuffer{2.0 / 2.237};
+  double kSpeedLimit{50.0 / 2.237};
+  double kBestSpeed{kSpeedLimit - kSpeedBuffer};
 };
 
 class GoalDistanceCostFunction : public CostFunction {
@@ -110,7 +114,10 @@ class TrajectoryValidator {
     return cost;
   }
 
+  void setEgoStatus(const EgoStatus &ego) { ego_ = ego; }
+
  private:
+  EgoStatus ego_;
   std::vector<std::unique_ptr<CostFunction>> cost_functions;
 };
 

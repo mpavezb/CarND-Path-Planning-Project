@@ -40,6 +40,7 @@ struct TrajectoryCharacteristics {
   TrajectoryAction action;
   double speed;
   double cost;
+  int intended_lane_id;
 };
 
 struct Trajectory {
@@ -97,6 +98,21 @@ struct TelemetryPacket {
 struct PredictionData {
   // raw data meanwhile
   SensorFusionList sensor_fusion;
+};
+
+struct EnvironmentData {
+  float lane_width{4.0F};
+  float speed_limit{50.0 / 2.237F};
+};
+
+struct TargetData {
+  std::uint8_t lane_id{1};  // 0=left, 1=middle, 2=right
+  float speed{49.5F / 2.237F};
+};
+
+struct EgoStatus {
+  std::uint8_t lane_id{1};  // 0=left, 1=middle, 2=right
+  float speed{0.0F};
 };
 
 }  // namespace udacity

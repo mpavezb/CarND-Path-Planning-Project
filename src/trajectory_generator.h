@@ -16,26 +16,23 @@ class TrajectoryGenerator {
   void setMap(std::shared_ptr<Map> map) { map_ = map; }
   void setTelemetry(const TelemetryPacket& telemetry) {
     telemetry_ = telemetry;
-    updateCurrentLaneId(telemetry.car_d);
   }
-  void updateCurrentLaneId(double car_d) {
-    current_lane_id_ = fmax(fmin(2, floor(car_d / lane_width_)), 0);
-  }
+  void setEgoStatus(const EgoStatus& ego) { ego_ = ego; }
 
   Trajectory getTrajectoryForAction(TrajectoryAction action,
                                     const PredictionData& predictions) {
     Trajectory result;
     switch (action) {
       case TrajectoryAction::kKeepLane:
-        result = generateKeepLaneTrajectory(telemetry_, predictions);
+        result = generateKeepLaneTrajectory(predictions);
         break;
       case TrajectoryAction::kPrepareChangeLaneLeft:
       case TrajectoryAction::kChangeLaneLeft:
-        result = generateLaneChangeLeftTrajectory(telemetry_, predictions);
+        result = generateLaneChangeLeftTrajectory(predictions);
         break;
       case TrajectoryAction::kPrepareChangeLaneRight:
       case TrajectoryAction::kChangeLaneRight:
-        result = generateLaneChangeRightTrajectory(telemetry_, predictions);
+        result = generateLaneChangeRightTrajectory(predictions);
         break;
     }
     result.characteristics.action = action;
@@ -50,33 +47,32 @@ class TrajectoryGenerator {
    *
    * Note that previous path end point is always further away than the car.
    */
-  SplineAnchors generateSplineAnchors(const TelemetryPacket& telemetry,
-                                      std::uint8_t target_lane_id) {
+  SplineAnchors generateSplineAnchors(std::uint8_t intended_lane_id) {
     SplineAnchors anchors;
     Pose& ref = anchors.reference;
 
     double prev_x;
     double prev_y;
 
-    auto prev_path_size = telemetry.last_trajectory.x.size();
+    auto prev_path_size = telemetry_.last_trajectory.x.size();
     if (prev_path_size < 2) {
       // based only on car
-      ref.yaw = telemetry.car_yaw;
-      ref.x = telemetry.car_x;
-      ref.y = telemetry.car_y;
-      ref.s = telemetry.car_s;
-      ref.d = telemetry.car_d;
+      ref.yaw = telemetry_.car_yaw;
+      ref.x = telemetry_.car_x;
+      ref.y = telemetry_.car_y;
+      ref.s = telemetry_.car_s;
+      ref.d = telemetry_.car_d;
       prev_x = ref.x - cos(ref.yaw);
       prev_y = ref.y - sin(ref.yaw);
     } else {
       // based only on previous endpoints
-      prev_x = telemetry.last_trajectory.x[prev_path_size - 2];
-      prev_y = telemetry.last_trajectory.y[prev_path_size - 2];
-      ref.x = telemetry.last_trajectory.x[prev_path_size - 1];
-      ref.y = telemetry.last_trajectory.y[prev_path_size - 1];
+      prev_x = telemetry_.last_trajectory.x[prev_path_size - 2];
+      prev_y = telemetry_.last_trajectory.y[prev_path_size - 2];
+      ref.x = telemetry_.last_trajectory.x[prev_path_size - 1];
+      ref.y = telemetry_.last_trajectory.y[prev_path_size - 1];
       ref.yaw = atan2(ref.y - prev_y, ref.x - prev_x);
-      ref.s = telemetry.end_path_s;
-      ref.d = telemetry.car_d;
+      ref.s = telemetry_.end_path_s;
+      ref.d = telemetry_.car_d;
     }
     anchors.x = {prev_x, ref.x};
     anchors.y = {prev_y, ref.y};
@@ -86,7 +82,7 @@ class TrajectoryGenerator {
     for (int i = 0; i < n_missing_anchors; ++i) {
       float spacing = look_ahead_distance_ / n_missing_anchors;
       float s = ref.s + (i + 1) * spacing;
-      float d = lane_width_ * (0.5 + target_lane_id);
+      float d = environment_.lane_width * (0.5 + intended_lane_id);
       std::vector<double> anchor =
           getXY(s, d, map_->waypoints_s, map_->waypoints_x, map_->waypoints_y);
       anchors.x.push_back(anchor[0]);
@@ -156,9 +152,10 @@ class TrajectoryGenerator {
   }
 
   bool isObjectInLane(const FusedObject& object, std::uint8_t lane_id) {
-    double center_lane_d = lane_width_ * (0.5 + lane_id);
-    double left_boundary_d = center_lane_d - lane_width_ / 2.0;
-    double right_boundary_d = center_lane_d + lane_width_ / 2.0;
+    double lane_width = environment_.lane_width;
+    double center_lane_d = lane_width * (0.5 + lane_id);
+    double left_boundary_d = center_lane_d - lane_width / 2.0;
+    double right_boundary_d = center_lane_d + lane_width / 2.0;
     return left_boundary_d < object.d && object.d < right_boundary_d;
   }
 
@@ -172,15 +169,14 @@ class TrajectoryGenerator {
    * Paths are expected to have a fixed length. The generator appends
    * missing points to the previously generated trajectory.
    */
-  Trajectory generateKeepLaneTrajectory(const TelemetryPacket& telemetry,
-                                        const PredictionData& predictions) {
-    SplineAnchors anchors = generateSplineAnchors(telemetry, current_lane_id_);
+  Trajectory generateKeepLaneTrajectory(const PredictionData& predictions) {
+    SplineAnchors anchors = generateSplineAnchors(ego_.lane_id);
     SplineAnchors ego_anchors = transformToEgo(anchors);
 
-    int prev_size = telemetry.last_trajectory.x.size();
+    int prev_size = telemetry_.last_trajectory.x.size();
     bool too_close = false;
     for (const auto object : predictions.sensor_fusion) {
-      if (isObjectInLane(object, current_lane_id_)) {
+      if (isObjectInLane(object, ego_.lane_id)) {
         double speed = sqrt(object.vx * object.vx + object.vy * object.vy);
         double object_s = object.s;
 
@@ -203,20 +199,20 @@ class TrajectoryGenerator {
 
     double speed = getSpeedForecast();
     if (too_close) {
-      speed = current_speed_ - speed_brake_delta_mps_;
+      speed = ego_.speed - speed_brake_delta_mps_;
     }
-    return interpolateMissingPoints(telemetry.last_trajectory, ego_anchors,
-                                    speed);
+    Trajectory trajectory = interpolateMissingPoints(telemetry_.last_trajectory,
+                                                     ego_anchors, speed);
+    trajectory.characteristics.intended_lane_id = ego_.lane_id;
+    return trajectory;
   }
-
-  void updateCurrentSpeed(double speed) { current_speed_ = speed; }
 
   double getSpeedForecast() {
     // TODO: update speed according to acceleration/braking
     // TODO: speed from telemetry is not reliable. Why?
     // double speed = telemetry.car_speed;
-    double speed = current_speed_;
-    if (speed < target_velocity_mps_) {
+    double speed = ego_.speed;
+    if (speed < target_.speed) {
       speed += speed_control_delta_mps_;
     } else {
       speed -= speed_control_delta_mps_;
@@ -224,22 +220,24 @@ class TrajectoryGenerator {
     return speed;
   }
 
-  Trajectory generateLaneChangeLeftTrajectory(const TelemetryPacket& telemetry,
-                                              const PredictionData&) {
-    std::uint8_t target_lane_id = fmax(0, current_lane_id_ - 1);
-    SplineAnchors anchors = generateSplineAnchors(telemetry, target_lane_id);
+  Trajectory generateLaneChangeLeftTrajectory(const PredictionData&) {
+    std::uint8_t intended_lane_id = fmax(0, ego_.lane_id - 1);
+    SplineAnchors anchors = generateSplineAnchors(intended_lane_id);
     SplineAnchors ego_anchors = transformToEgo(anchors);
-    return interpolateMissingPoints(telemetry.last_trajectory, ego_anchors,
-                                    telemetry.car_speed);
+    Trajectory trajectory = interpolateMissingPoints(telemetry_.last_trajectory,
+                                                     ego_anchors, ego_.speed);
+    trajectory.characteristics.intended_lane_id = intended_lane_id;
+    return trajectory;
   }
 
-  Trajectory generateLaneChangeRightTrajectory(const TelemetryPacket& telemetry,
-                                               const PredictionData&) {
-    std::uint8_t target_lane_id = fmin(2, current_lane_id_ + 1);
-    SplineAnchors anchors = generateSplineAnchors(telemetry, target_lane_id);
+  Trajectory generateLaneChangeRightTrajectory(const PredictionData&) {
+    std::uint8_t intended_lane_id = fmin(2, ego_.lane_id + 1);
+    SplineAnchors anchors = generateSplineAnchors(intended_lane_id);
     SplineAnchors ego_anchors = transformToEgo(anchors);
-    return interpolateMissingPoints(telemetry.last_trajectory, ego_anchors,
-                                    telemetry.car_speed);
+    Trajectory trajectory = interpolateMissingPoints(telemetry_.last_trajectory,
+                                                     ego_anchors, ego_.speed);
+    trajectory.characteristics.intended_lane_id = intended_lane_id;
+    return trajectory;
   }
 
  private:
@@ -247,14 +245,9 @@ class TrajectoryGenerator {
   std::shared_ptr<Map> map_;
   TelemetryPacket telemetry_;
 
-  // environment
-  float lane_width_{4.0F};
-  // float speed_limit_{50.0 / 2.237F};
-
-  // target
-  std::uint8_t current_lane_id_{1};  // 0=left, 1=middle, 2=right
-  float target_velocity_mph_{49.5F};
-  float target_velocity_mps_{target_velocity_mph_ / 2.237F};
+  EnvironmentData environment_;
+  TargetData target_;
+  EgoStatus ego_;
 
   // algorithms
   int path_size_{50};
@@ -262,7 +255,7 @@ class TrajectoryGenerator {
   float path_execution_frequency_{1 / .02F};
   float look_ahead_distance_{90.0F};
 
-  float current_speed_{0.0F};
+  // speed
   float speed_control_delta_mps_{0.1F};
   float speed_brake_delta_mps_{0.3F};
 };  // namespace udacity
