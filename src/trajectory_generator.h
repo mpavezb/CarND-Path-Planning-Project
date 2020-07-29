@@ -274,17 +274,21 @@ class TrajectoryGenerator {
   bool isLaneChangePossible(const PredictionData& predictions,
                             std::uint8_t intended_lane_id) {
     double car_s = ego_.s;
-    if (telemetry_.last_trajectory.x.size() > 1) {
+    if (telemetry_.last_trajectory.x.size() > 0) {
       car_s = telemetry_.end_path_s;
     }
 
-    double gap_length = 20.0;
+    double gap_half_length = 20.0;
     bool is_gap_free = true;
     auto objects = getObjectsInLane(predictions, intended_lane_id);
     for (auto object : objects) {
       double position = predictObjectPosition(object);
       double distance = fabs(car_s - position);
-      if (distance < gap_length / 2.0) {
+      if (distance < gap_half_length) {
+        // std::cout << "[Generator]: Cannot switch to lane ("
+        //           << (int)intended_lane_id
+        //           << ") because of car nearby at distance: " << distance
+        //           << std::endl;
         return false;
       }
     }
@@ -301,19 +305,24 @@ class TrajectoryGenerator {
    * Paths are expected to have a fixed length. The generator appends
    * missing points to the previously generated trajectory.
    */
-  Trajectory generateKeepLaneTrajectory(const PredictionData& predictions) {
-    std::uint8_t endpoint_lane_id = ego_.lane_id;
-    std::uint8_t intended_lane_id = ego_.lane_id;
-
-    double speed = getSpeedForecast(predictions, intended_lane_id);
-
+  Trajectory generateTrajectoryFromSpline(std::uint8_t intended_lane_id,
+                                          std::uint8_t endpoint_lane_id,
+                                          double speed) {
     // Generate spline
-    SplineAnchors anchors = generateSplineAnchors(intended_lane_id);
+    SplineAnchors anchors = generateSplineAnchors(endpoint_lane_id);
     SplineAnchors ego_anchors = transformToEgo(anchors);
     Trajectory trajectory = interpolateMissingPoints(ego_anchors, speed);
     trajectory.characteristics.endpoint_lane_id = endpoint_lane_id;
     trajectory.characteristics.intended_lane_id = intended_lane_id;
     return trajectory;
+  }
+
+  Trajectory generateKeepLaneTrajectory(const PredictionData& predictions) {
+    std::uint8_t endpoint_lane_id = ego_.lane_id;
+    std::uint8_t intended_lane_id = ego_.lane_id;
+    double speed = getSpeedForecast(predictions, intended_lane_id);
+    return generateTrajectoryFromSpline(intended_lane_id, endpoint_lane_id,
+                                        speed);
   }
 
   Trajectory generatePrepareLaneChangeLeftTrajectory(
@@ -335,13 +344,8 @@ class TrajectoryGenerator {
       speed = fmin(speed_actual, speed_next);
     }
 
-    // Generate spline
-    SplineAnchors anchors = generateSplineAnchors(intended_lane_id);
-    SplineAnchors ego_anchors = transformToEgo(anchors);
-    Trajectory trajectory = interpolateMissingPoints(ego_anchors, speed);
-    trajectory.characteristics.endpoint_lane_id = endpoint_lane_id;
-    trajectory.characteristics.intended_lane_id = intended_lane_id;
-    return trajectory;
+    return generateTrajectoryFromSpline(intended_lane_id, endpoint_lane_id,
+                                        speed);
   }
 
   Trajectory generatePrepareLaneChangeRightTrajectory(
@@ -362,57 +366,41 @@ class TrajectoryGenerator {
       speed = fmin(speed_actual, speed_next);
     }
 
-    // Generate spline
-    SplineAnchors anchors = generateSplineAnchors(intended_lane_id);
-    SplineAnchors ego_anchors = transformToEgo(anchors);
-    Trajectory trajectory = interpolateMissingPoints(ego_anchors, speed);
-    trajectory.characteristics.intended_lane_id = intended_lane_id;
-    trajectory.characteristics.endpoint_lane_id = endpoint_lane_id;
-    return trajectory;
+    return generateTrajectoryFromSpline(intended_lane_id, endpoint_lane_id,
+                                        speed);
+  }
+
+  Trajectory generateInvalidTrajectory() {
+    Trajectory invalid_trajectory;
+    invalid_trajectory.characteristics.is_valid = false;
+    return invalid_trajectory;
+  }
+
+  Trajectory generateLaneChangeTrajectory(const PredictionData& predictions,
+                                          std::uint8_t intended_lane_id,
+                                          std::uint8_t endpoint_lane_id) {
+    if (!isLaneChangePossible(predictions, intended_lane_id)) {
+      return generateInvalidTrajectory();
+    }
+    double speed = getSpeedForecast(predictions, intended_lane_id);
+    return generateTrajectoryFromSpline(intended_lane_id, endpoint_lane_id,
+                                        speed);
   }
 
   Trajectory generateLaneChangeLeftTrajectory(
       const PredictionData& predictions) {
     std::uint8_t intended_lane_id = fmax(0, ego_.lane_id - 1);
     std::uint8_t endpoint_lane_id = intended_lane_id;
-
-    double speed = getSpeedForecast(predictions, intended_lane_id);
-
-    if (!isLaneChangePossible(predictions, intended_lane_id)) {
-      Trajectory invalid_trajectory;
-      invalid_trajectory.characteristics.is_valid = false;
-      return invalid_trajectory;
-    }
-
-    // Generate spline
-    SplineAnchors anchors = generateSplineAnchors(intended_lane_id);
-    SplineAnchors ego_anchors = transformToEgo(anchors);
-    Trajectory trajectory = interpolateMissingPoints(ego_anchors, speed);
-    trajectory.characteristics.intended_lane_id = intended_lane_id;
-    trajectory.characteristics.endpoint_lane_id = endpoint_lane_id;
-    return trajectory;
+    return generateLaneChangeTrajectory(predictions, intended_lane_id,
+                                        endpoint_lane_id);
   }
 
   Trajectory generateLaneChangeRightTrajectory(
       const PredictionData& predictions) {
     std::uint8_t intended_lane_id = fmin(2, ego_.lane_id + 1);
     std::uint8_t endpoint_lane_id = intended_lane_id;
-
-    double speed = getSpeedForecast(predictions, intended_lane_id);
-
-    if (!isLaneChangePossible(predictions, intended_lane_id)) {
-      Trajectory invalid_trajectory;
-      invalid_trajectory.characteristics.is_valid = false;
-      return invalid_trajectory;
-    }
-
-    // Generate spline
-    SplineAnchors anchors = generateSplineAnchors(intended_lane_id);
-    SplineAnchors ego_anchors = transformToEgo(anchors);
-    Trajectory trajectory = interpolateMissingPoints(ego_anchors, speed);
-    trajectory.characteristics.intended_lane_id = intended_lane_id;
-    trajectory.characteristics.endpoint_lane_id = endpoint_lane_id;
-    return trajectory;
+    return generateLaneChangeTrajectory(predictions, intended_lane_id,
+                                        endpoint_lane_id);
   }
 
   void setTargetData(const TargetData& target) { target_ = target; }
@@ -430,11 +418,11 @@ class TrajectoryGenerator {
   int path_size_{50};
   int n_anchors_{5};
   float path_execution_frequency_{1 / .02F};
-  float look_ahead_distance_{90.0F};
+  float look_ahead_distance_{50.0F};
 
   // speed
   float speed_control_delta_mps_{0.1F};
-  float speed_brake_delta_mps_{0.3F};
+  float speed_brake_delta_mps_{0.2F};
 };  // namespace udacity
 
 }  // namespace udacity

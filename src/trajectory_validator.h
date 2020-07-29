@@ -68,7 +68,7 @@ class GoalDistanceCostFunction : public CostFunction {
   }
 
  private:
-  double kFunctionWeight{2.0};
+  double kFunctionWeight{4.0};
 };
 
 /**
@@ -95,7 +95,7 @@ class InefficientLaneCostFunction : public CostFunction {
   }
 
  private:
-  double kFunctionWeight{1.0};
+  double kFunctionWeight{2.0};
 };
 
 class TrajectoryValidator {
