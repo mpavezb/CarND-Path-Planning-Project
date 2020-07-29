@@ -125,7 +125,8 @@ class TrajectoryValidator {
   }
 
   bool isTrajectoryValid(const Trajectory &trajectory) {
-    bool is_valid = true;
+    bool is_valid = trajectory.characteristics.is_valid;
+    // TODO: invalid trajectories may generate errors
     is_valid = is_valid and isActionLaneInRoad(trajectory);
     return is_valid;
   }

@@ -43,6 +43,7 @@ struct TrajectoryCharacteristics {
   double cost;
   std::uint8_t intended_lane_id;  // expected lane id after successful maneuver.
   std::uint8_t endpoint_lane_id;  // Lane id for this trajectory's endpoint.
+  bool is_valid{true};
 };
 
 struct Trajectory {

@@ -271,6 +271,26 @@ class TrajectoryGenerator {
     return fmax(0, fmin(ego_.speed + delta_speed, ego_.desired_speed));
   }
 
+  bool isLaneChangePossible(const PredictionData& predictions,
+                            std::uint8_t intended_lane_id) {
+    double car_s = ego_.s;
+    if (telemetry_.last_trajectory.x.size() > 1) {
+      car_s = telemetry_.end_path_s;
+    }
+
+    double gap_length = 20.0;
+    bool is_gap_free = true;
+    auto objects = getObjectsInLane(predictions, intended_lane_id);
+    for (auto object : objects) {
+      double position = predictObjectPosition(object);
+      double distance = fabs(car_s - position);
+      if (distance < gap_length / 2.0) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   /**
    * Spline based Trajectory Generation.
    *
@@ -302,7 +322,18 @@ class TrajectoryGenerator {
     std::uint8_t intended_lane_id = fmax(0, ego_.lane_id - 1);
     std::uint8_t endpoint_lane_id = ego_.lane_id;
 
-    double speed = getSpeedForecast(predictions, intended_lane_id);
+    double speed_actual = getSpeedForecast(predictions, endpoint_lane_id);
+    double speed_next = getSpeedForecast(predictions, intended_lane_id);
+
+    double speed;
+    bool is_object_behind = false;
+    if (is_object_behind) {
+      // keep speed of current lane so as to not collide with car behind
+      speed = speed_actual;
+    } else {
+      // prefer the lowest speed from both lanes
+      speed = fmin(speed_actual, speed_next);
+    }
 
     // Generate spline
     SplineAnchors anchors = generateSplineAnchors(intended_lane_id);
@@ -318,7 +349,18 @@ class TrajectoryGenerator {
     std::uint8_t intended_lane_id = fmin(2, ego_.lane_id + 1);
     std::uint8_t endpoint_lane_id = ego_.lane_id;
 
-    double speed = getSpeedForecast(predictions, intended_lane_id);
+    double speed_actual = getSpeedForecast(predictions, endpoint_lane_id);
+    double speed_next = getSpeedForecast(predictions, intended_lane_id);
+
+    double speed;
+    bool is_object_behind = false;
+    if (is_object_behind) {
+      // keep speed of current lane so as to not collide with car behind
+      speed = speed_actual;
+    } else {
+      // prefer the lowest speed from both lanes
+      speed = fmin(speed_actual, speed_next);
+    }
 
     // Generate spline
     SplineAnchors anchors = generateSplineAnchors(intended_lane_id);
@@ -336,6 +378,12 @@ class TrajectoryGenerator {
 
     double speed = getSpeedForecast(predictions, intended_lane_id);
 
+    if (!isLaneChangePossible(predictions, intended_lane_id)) {
+      Trajectory invalid_trajectory;
+      invalid_trajectory.characteristics.is_valid = false;
+      return invalid_trajectory;
+    }
+
     // Generate spline
     SplineAnchors anchors = generateSplineAnchors(intended_lane_id);
     SplineAnchors ego_anchors = transformToEgo(anchors);
@@ -351,6 +399,12 @@ class TrajectoryGenerator {
     std::uint8_t endpoint_lane_id = intended_lane_id;
 
     double speed = getSpeedForecast(predictions, intended_lane_id);
+
+    if (!isLaneChangePossible(predictions, intended_lane_id)) {
+      Trajectory invalid_trajectory;
+      invalid_trajectory.characteristics.is_valid = false;
+      return invalid_trajectory;
+    }
 
     // Generate spline
     SplineAnchors anchors = generateSplineAnchors(intended_lane_id);
