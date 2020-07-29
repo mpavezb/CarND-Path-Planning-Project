@@ -27,10 +27,14 @@ class TrajectoryGenerator {
         result = generateKeepLaneTrajectory(predictions);
         break;
       case TrajectoryAction::kPrepareChangeLaneLeft:
+        result = generatePrepareLaneChangeLeftTrajectory(predictions);
+        break;
       case TrajectoryAction::kChangeLaneLeft:
         result = generateLaneChangeLeftTrajectory(predictions);
         break;
       case TrajectoryAction::kPrepareChangeLaneRight:
+        result = generatePrepareLaneChangeRightTrajectory(predictions);
+        break;
       case TrajectoryAction::kChangeLaneRight:
         result = generateLaneChangeRightTrajectory(predictions);
         break;
@@ -124,11 +128,10 @@ class TrajectoryGenerator {
    * Generate interpolation points between anchors.
    * Points are evenly spaced in x axis, so that desired speed is kept.
    */
-  Trajectory interpolateMissingPoints(const Trajectory& baseline,
-                                      const SplineAnchors& ego_anchors,
+  Trajectory interpolateMissingPoints(const SplineAnchors& ego_anchors,
                                       double speed) {
-    Trajectory result = baseline;
-    int missing_points = path_size_ - baseline.x.size();
+    Trajectory result = telemetry_.last_trajectory;
+    int missing_points = path_size_ - result.x.size();
 
     tk::spline gen;
     gen.set_points(ego_anchors.x, ego_anchors.y);
@@ -159,6 +162,115 @@ class TrajectoryGenerator {
     return left_boundary_d < object.d && object.d < right_boundary_d;
   }
 
+  double predictObjectPosition(const FusedObject& object) {
+    double s = object.s;
+    double speed = sqrt(object.vx * object.vx + object.vy * object.vy);
+    // If using the previous path, then we are not yet there??
+    // Then we project the object in time to be prev_size steps ahead.
+    int prev_size = telemetry_.last_trajectory.x.size();
+    if (prev_size > 0) {
+      s += prev_size * speed / path_execution_frequency_;
+    }
+    return s;
+  }
+
+  bool isObjectAhead(const FusedObject& object, double s) {
+    double object_s = predictObjectPosition(object);
+    return s < object_s;
+  }
+
+  bool isObjectNear(const FusedObject& object, double s) {
+    double object_s = predictObjectPosition(object);
+    double threshold = ego_.min_distance_to_front_object;
+    return abs(s - object_s) < threshold;
+  }
+
+  SensorFusionList getObjectsInLane(const PredictionData& predictions,
+                                    std::uint8_t lane_id) {
+    SensorFusionList result;
+    for (const auto object : predictions.sensor_fusion) {
+      if (isObjectInLane(object, lane_id)) {
+        result.push_back(object);
+      }
+    }
+    return result;
+  }
+
+  SensorFusionList getObjectsInFront(const SensorFusionList& objects,
+                                     double car_s) {
+    SensorFusionList result;
+    for (const auto object : objects) {
+      if (isObjectAhead(object, car_s)) {
+        result.push_back(object);
+      }
+    }
+    return result;
+  }
+
+  SensorFusionList getObjectsInProximity(const SensorFusionList& objects,
+                                         double car_s) {
+    SensorFusionList result;
+    for (const auto object : objects) {
+      if (isObjectNear(object, car_s)) {
+        result.push_back(object);
+      }
+    }
+    return result;
+  }
+
+  FusedObject getNearestObject(const SensorFusionList& objects, double car_s) {
+    FusedObject result;
+    double nearest_distance{1000.0};
+    for (const auto object : objects) {
+      double distance = predictObjectPosition(object);
+      if (distance < nearest_distance) {
+        result = object;
+        nearest_distance = distance;
+      }
+    }
+    return result;
+  }
+
+  double getSpeedForecast(const PredictionData& predictions,
+                          std::uint8_t lane_id) {
+    // TODO: update speed according to acceleration/braking
+    // TODO: speed from telemetry is not reliable. Why?
+    bool is_object_ahead = false;
+    bool is_object_behind = false;
+
+    double car_s = ego_.s;
+    if (telemetry_.last_trajectory.x.size() > 1) {
+      car_s = telemetry_.end_path_s;
+    }
+
+    double object_speed{0.0};
+    auto objects_in_lane = getObjectsInLane(predictions, lane_id);
+    auto objects_in_front = getObjectsInFront(objects_in_lane, car_s);
+    auto objects_near = getObjectsInProximity(objects_in_front, car_s);
+    if (!objects_near.empty()) {
+      auto object = getNearestObject(objects_near, car_s);
+      object_speed = sqrt(object.vx * object.vx + object.vy * object.vy);
+      is_object_ahead = true;
+    }
+
+    double delta_speed{0};
+    if (is_object_ahead) {
+      if (is_object_behind) {
+        // cannot slow down agressively!
+        delta_speed = -0.5 * speed_brake_delta_mps_;
+      } else {
+        // slow down to keep distance
+        delta_speed = -1.0 * fmin(fabs(ego_.speed - object_speed),
+                                  speed_brake_delta_mps_);
+      }
+    } else {
+      // keep max velocity possible
+      delta_speed = speed_control_delta_mps_;
+    }
+
+    return fmax(0, fmin(ego_.speed + delta_speed, ego_.desired_speed));
+  }
+
   /**
    * Spline based Trajectory Generation.
    *
@@ -170,82 +282,86 @@ class TrajectoryGenerator {
    * missing points to the previously generated trajectory.
    */
   Trajectory generateKeepLaneTrajectory(const PredictionData& predictions) {
-    SplineAnchors anchors = generateSplineAnchors(ego_.lane_id);
+    std::uint8_t endpoint_lane_id = ego_.lane_id;
+    std::uint8_t intended_lane_id = ego_.lane_id;
+
+    double speed = getSpeedForecast(predictions, intended_lane_id);
+
+    // Generate spline
+    SplineAnchors anchors = generateSplineAnchors(intended_lane_id);
     SplineAnchors ego_anchors = transformToEgo(anchors);
-
-    int prev_size = telemetry_.last_trajectory.x.size();
-    bool too_close = false;
-    for (const auto object : predictions.sensor_fusion) {
-      if (isObjectInLane(object, ego_.lane_id)) {
-        double speed = sqrt(object.vx * object.vx + object.vy * object.vy);
-        double object_s = object.s;
-
-        // If using the previous path, then we are not yet there??
-        // Then we project the object in time to be prev_size steps ahead.
-        if (prev_size > 0) {
-          object_s += prev_size * speed / path_execution_frequency_;
-        }
-
-        double car_s = anchors.reference.s;
-        double safety_gap = 30.0;
-        bool is_object_in_front = car_s < object_s;
-        bool is_object_near = abs(car_s - object_s) < safety_gap;
-        if (is_object_in_front && is_object_near) {
-          too_close = true;
-          break;
-        }
-      }
-    }
-
-    double speed = getSpeedForecast();
-    if (too_close) {
-      speed = ego_.speed - speed_brake_delta_mps_;
-    }
-    Trajectory trajectory = interpolateMissingPoints(telemetry_.last_trajectory,
-                                                     ego_anchors, speed);
-    trajectory.characteristics.intended_lane_id = ego_.lane_id;
-    trajectory.characteristics.endpoint_lane_id = ego_.lane_id;
+    Trajectory trajectory = interpolateMissingPoints(ego_anchors, speed);
+    trajectory.characteristics.endpoint_lane_id = endpoint_lane_id;
+    trajectory.characteristics.intended_lane_id = intended_lane_id;
     return trajectory;
   }
 
-  double getSpeedForecast() {
-    // TODO: update speed according to acceleration/braking
-    // TODO: speed from telemetry is not reliable. Why?
-    // double speed = telemetry.car_speed;
-    double speed = ego_.speed;
-    if (speed < target_.speed) {
-      speed += speed_control_delta_mps_;
-    } else {
-      speed -= speed_control_delta_mps_;
-    }
-    return speed;
-  }
-
-  Trajectory generateLaneChangeLeftTrajectory(const PredictionData&) {
+  Trajectory generatePrepareLaneChangeLeftTrajectory(
+      const PredictionData& predictions) {
+    // TODO: planner should not attempt this when already on leftmost lane
     std::uint8_t intended_lane_id = fmax(0, ego_.lane_id - 1);
+    std::uint8_t endpoint_lane_id = ego_.lane_id;
+
+    double speed = getSpeedForecast(predictions, intended_lane_id);
+
+    // Generate spline
     SplineAnchors anchors = generateSplineAnchors(intended_lane_id);
     SplineAnchors ego_anchors = transformToEgo(anchors);
-    double speed = getSpeedForecast();
-    Trajectory trajectory = interpolateMissingPoints(telemetry_.last_trajectory,
-                                                     ego_anchors, speed);
+    Trajectory trajectory = interpolateMissingPoints(ego_anchors, speed);
+    trajectory.characteristics.endpoint_lane_id = endpoint_lane_id;
     trajectory.characteristics.intended_lane_id = intended_lane_id;
-    trajectory.characteristics.endpoint_lane_id =
-        ego_.lane_id;  // TODO: compute
     return trajectory;
   }
 
-  Trajectory generateLaneChangeRightTrajectory(const PredictionData&) {
+  Trajectory generatePrepareLaneChangeRightTrajectory(
+      const PredictionData& predictions) {
     std::uint8_t intended_lane_id = fmin(2, ego_.lane_id + 1);
+    std::uint8_t endpoint_lane_id = ego_.lane_id;
+
+    double speed = getSpeedForecast(predictions, intended_lane_id);
+
+    // Generate spline
     SplineAnchors anchors = generateSplineAnchors(intended_lane_id);
     SplineAnchors ego_anchors = transformToEgo(anchors);
-    double speed = getSpeedForecast();
-    Trajectory trajectory = interpolateMissingPoints(telemetry_.last_trajectory,
-                                                     ego_anchors, speed);
+    Trajectory trajectory = interpolateMissingPoints(ego_anchors, speed);
     trajectory.characteristics.intended_lane_id = intended_lane_id;
-    trajectory.characteristics.endpoint_lane_id =
-        ego_.lane_id;  // TODO: compute
+    trajectory.characteristics.endpoint_lane_id = endpoint_lane_id;
     return trajectory;
   }
+
+  Trajectory generateLaneChangeLeftTrajectory(
+      const PredictionData& predictions) {
+    std::uint8_t intended_lane_id = fmax(0, ego_.lane_id - 1);
+    std::uint8_t endpoint_lane_id = intended_lane_id;
+
+    double speed = getSpeedForecast(predictions, intended_lane_id);
+
+    // Generate spline
+    SplineAnchors anchors = generateSplineAnchors(intended_lane_id);
+    SplineAnchors ego_anchors = transformToEgo(anchors);
+    Trajectory trajectory = interpolateMissingPoints(ego_anchors, speed);
+    trajectory.characteristics.intended_lane_id = intended_lane_id;
+    trajectory.characteristics.endpoint_lane_id = endpoint_lane_id;
+    return trajectory;
+  }
+
+  Trajectory generateLaneChangeRightTrajectory(
+      const PredictionData& predictions) {
+    std::uint8_t intended_lane_id = fmin(2, ego_.lane_id + 1);
+    std::uint8_t endpoint_lane_id = intended_lane_id;
+
+    double speed = getSpeedForecast(predictions, intended_lane_id);
+
+    // Generate spline
+    SplineAnchors anchors = generateSplineAnchors(intended_lane_id);
+    SplineAnchors ego_anchors = transformToEgo(anchors);
+    Trajectory trajectory = interpolateMissingPoints(ego_anchors, speed);
+    trajectory.characteristics.intended_lane_id = intended_lane_id;
+    trajectory.characteristics.endpoint_lane_id = endpoint_lane_id;
+    return trajectory;
+  }
+
+  void setTargetData(const TargetData& target) { target_ = target; }
 
  private:
   // Input Data

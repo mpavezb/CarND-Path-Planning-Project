@@ -13,7 +13,8 @@ class CostFunction {
   /**
    * Returns cost in range [0,1]. Good trajectories yield lower cost.
    */
-  virtual double getCost(const Trajectory &, const PredictionData &) = 0;
+  virtual double getCost(const Trajectory &, const PredictionData &,
+                         const TargetData &, const EgoStatus &) = 0;
 };
 
 /**
@@ -22,8 +23,8 @@ class CostFunction {
  */
 class SpeedCostFunction : public CostFunction {
  public:
-  double getCost(const Trajectory &trajectory,
-                 const PredictionData &) override {
+  double getCost(const Trajectory &trajectory, const PredictionData &,
+                 const TargetData &, const EgoStatus &) override {
     double cost = 0;
     double speed = trajectory.characteristics.speed;
     if (speed < kBestSpeed) {
@@ -44,22 +45,22 @@ class SpeedCostFunction : public CostFunction {
   double kFunctionWeight{1.0};
 };
 
+/**
+ *  The cost increases with both the distance of intended lane from the
+ *  goal and the distance of the endpoints lane from the goal.
+ *  The cost of being out of the goal lane also becomes larger as the
+ *  vehicle approaches the goal.
+ */
 class GoalDistanceCostFunction : public CostFunction {
  public:
   double getCost(const Trajectory &trajectory,
-                 const PredictionData &predictions) override {
-    return 0;
-    // ARGS:
-    int goal_lane = 0;
-    int intended_lane = 0;
-    int final_lane = 0;
-    double distance_to_goal = 0;
+                 const PredictionData &predictions, const TargetData &target,
+                 const EgoStatus &ego) override {
+    int goal_lane = target.lane_id;
+    int intended_lane = trajectory.characteristics.intended_lane_id;
+    int final_lane = trajectory.characteristics.endpoint_lane_id;
+    double distance_to_goal = target.s_position - ego.s;
 
-    // The cost increases with both the distance of intended lane from the
-    // goal
-    //   and the distance of the final lane from the goal. The cost of being
-    //   out of the goal lane also becomes larger as the vehicle approaches
-    //   the goal.
     int delta_d = 2.0 * goal_lane - intended_lane - final_lane;
     double cost = 1 - exp(-(std::abs(delta_d) / distance_to_goal));
 
@@ -67,7 +68,7 @@ class GoalDistanceCostFunction : public CostFunction {
   }
 
  private:
-  double kFunctionWeight{1.0};
+  double kFunctionWeight{2.0};
 };
 
 /**
@@ -77,18 +78,18 @@ class GoalDistanceCostFunction : public CostFunction {
 class InefficientLaneCostFunction : public CostFunction {
  public:
   double getCost(const Trajectory &trajectory,
-                 const PredictionData &predictions) override {
+                 const PredictionData &predictions, const TargetData &,
+                 const EgoStatus &ego) override {
     const auto lane_speeds = predictions.lane_speeds;
 
-    int target_speed = trajectory.characteristics.speed;
+    int current_speed = ego.speed;
     int intended_lane = trajectory.characteristics.intended_lane_id;
     int endpoint_lane = trajectory.characteristics.endpoint_lane_id;
 
     double intended_lane_speed = lane_speeds[intended_lane];
     double endpoint_lane_speed = lane_speeds[endpoint_lane];
     double cost =
-        (2.0 * target_speed - intended_lane_speed - endpoint_lane_speed) /
-        target_speed;
+        2.0 - (intended_lane_speed + endpoint_lane_speed) / current_speed;
 
     return cost * kFunctionWeight;
   }
@@ -133,17 +134,19 @@ class TrajectoryValidator {
                            const PredictionData &predictions) {
     double cost = 0;
     for (auto &cost_function : cost_functions) {
-      cost += cost_function->getCost(trajectory, predictions);
+      cost += cost_function->getCost(trajectory, predictions, target_, ego_);
     }
     return cost;
   }
 
+  void setTargetData(const TargetData &target) { target_ = target; }
   void setEgoStatus(const EgoStatus &ego) { ego_ = ego; }
   void setPredictionData(const PredictionData &predictions) {
     predictions_ = predictions;
   }
 
  private:
+  TargetData target_;
   EgoStatus ego_;
   PredictionData predictions_;
   std::vector<std::unique_ptr<CostFunction>> cost_functions;

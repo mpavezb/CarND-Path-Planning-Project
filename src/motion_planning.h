@@ -16,6 +16,7 @@ class MotionPlanning {
  public:
   MotionPlanning(const Map& map) {
     map_ = std::shared_ptr<Map>(new Map(map));
+    target_.s_position = map_->max_s;
     generator_ =
         std::shared_ptr<TrajectoryGenerator>(new TrajectoryGenerator());
     validator_ =
@@ -39,6 +40,7 @@ class MotionPlanning {
 
   void setTelemetry(const TelemetryPacket& telemetry) {
     generator_->setTelemetry(telemetry);
+    ego_.s = telemetry.car_s;
     updateEgoLaneId(telemetry);
   }
 
@@ -50,6 +52,8 @@ class MotionPlanning {
   void step() {
     generator_->setEgoStatus(ego_);
     validator_->setEgoStatus(ego_);
+    generator_->setTargetData(target_);
+    validator_->setTargetData(target_);
     StateMachine::dispatch(sm_event_);
     selected_trajectory_ = sm_event_.output->selected_trajectory;
     ego_.speed = selected_trajectory_.characteristics.speed;
@@ -60,6 +64,7 @@ class MotionPlanning {
  private:
   EnvironmentData environment_;
   EgoStatus ego_;
+  TargetData target_;
   UpdateEvent sm_event_;
   Trajectory selected_trajectory_;
   std::shared_ptr<Map> map_;

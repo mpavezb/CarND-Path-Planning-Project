@@ -2,12 +2,15 @@
 #define PREDICTION_H_
 
 #include <cmath>
+#include <memory>
 
 #include "data_types.h"
 
 namespace udacity {
 class Prediction {
  public:
+  Prediction(const Map& map) { map_ = std::shared_ptr<Map>(new Map(map)); }
+
   void setTelemetry(const TelemetryPacket& telemetry) {
     telemetry_ = telemetry;
   }
@@ -35,7 +38,7 @@ class Prediction {
   }
 
   FusedObject getNearestObjectInFront(const SensorFusionList& objects) {
-    double nearest_distance = telemetry_.end_path_s;
+    double nearest_distance = map_->max_s;
     FusedObject nearest;
     for (auto object : objects) {
       double distance = getDistanceToObject(object);
@@ -87,6 +90,7 @@ class Prediction {
   TelemetryPacket telemetry_;
   PredictionData predictions;
   EnvironmentData environment_;
+  std::shared_ptr<Map> map_;
 };
 
 }  // namespace udacity

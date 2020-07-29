@@ -109,12 +109,18 @@ struct EnvironmentData {
 
 struct TargetData {
   std::uint8_t lane_id{1};  // 0=left, 1=middle, 2=right
-  float speed{49.5F / 2.237F};
+  float s_position;
 };
 
 struct EgoStatus {
   std::uint8_t lane_id{1};  // 0=left, 1=middle, 2=right
+  float s{0.0F};
   float speed{0.0F};
+  float accel{0.0F};  // unused
+  float desired_speed{49.5F / 2.237F};
+  float max_acceleration{4.0F};          // unused
+  float max_braking_acceleration{6.0F};  // unused
+  float min_distance_to_front_object{30};
 };
 
 }  // namespace udacity

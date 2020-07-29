@@ -25,7 +25,7 @@ int main() {
   Map map = MapReader::readMap(map_file_);
   map.max_s = max_s;
   MotionPlanning motion_planning{map};
-  Prediction prediction{};
+  Prediction prediction{map};
 
   uWS::Hub h;
   h.onMessage([&motion_planning, &prediction](uWS::WebSocket<uWS::SERVER> ws,
