@@ -3,8 +3,6 @@
 #include <iostream>
 #include <string>
 
-//#include "Eigen-3.3/Eigen/Core"
-//#include "Eigen-3.3/Eigen/QR"
 #include "data_types.h"
 #include "helpers.h"
 #include "motion_planning.h"
