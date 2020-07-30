@@ -18,8 +18,8 @@ class CostFunction {
 };
 
 /**
- * Implements a 3-piecewise linear cost function based on the intended speed,
- * the target speed a
+ * Implements a 3-piecewise linear cost function based on the trajector
+ * final speed and the optimal speed.
  */
 class SpeedCostFunction : public CostFunction {
  public:
@@ -82,7 +82,7 @@ class InefficientLaneCostFunction : public CostFunction {
                  const EgoStatus &ego) override {
     const auto lane_speeds = predictions.lane_speeds;
 
-    int current_speed = ego.speed;
+    int current_speed = trajectory.characteristics.speed;
     int intended_lane = trajectory.characteristics.intended_lane_id;
     int endpoint_lane = trajectory.characteristics.endpoint_lane_id;
 
