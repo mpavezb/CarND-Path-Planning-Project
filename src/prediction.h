@@ -19,8 +19,8 @@ class Prediction {
     return fmax(fmin(2, floor(d / environment_.lane_width)), 0);
   }
 
-  SensorFusionList getObjectsInLane(std::uint8_t lane_id) {
-    SensorFusionList result;
+  FusedObjects getObjectsInLane(std::uint8_t lane_id) {
+    FusedObjects result;
     for (auto object : telemetry_.sensor_fusion) {
       if (lane_id == getLaneIdFromFrenet(object.d)) {
         result.push_back(object);
@@ -37,7 +37,7 @@ class Prediction {
     return fabs(object.s - telemetry_.car_s);
   }
 
-  FusedObject getNearestObjectInFront(const SensorFusionList& objects) {
+  FusedObject getNearestObjectInFront(const FusedObjects& objects) {
     double nearest_distance = map_->max_s;
     FusedObject nearest;
     for (auto object : objects) {
@@ -78,9 +78,23 @@ class Prediction {
     predictions.lane_speeds[2] = getLaneSpeed(2);
   }
 
+  void updateVehicles() {
+    // TODO: Do real tracking / prediction here!
+    for (const auto& fused_object : telemetry_.sensor_fusion) {
+      Vehicle v;
+      v.id = fused_object.id;
+      v.d = fused_object.d;
+      v.s = fused_object.s;
+      v.lane_id = getLaneIdFromFrenet(fused_object.d);
+      v.speed = sqrt(fused_object.vx * fused_object.vx +
+                     fused_object.vy * fused_object.vy);
+      predictions.vehicles.push_back(v);
+    }
+  }
+
   void step() {
     // Do something!
-    predictions.sensor_fusion = telemetry_.sensor_fusion;
+    updateVehicles();
     updateLaneSpeeds();
   }
 

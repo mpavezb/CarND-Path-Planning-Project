@@ -65,7 +65,7 @@ void from_json(const nlohmann::json& j, TelemetryPacket& packet) {
   packet.car_speed = ((double)j["speed"]) / 2.237;
   packet.last_trajectory.x = j["previous_path_x"].get<Path>();
   packet.last_trajectory.y = j["previous_path_y"].get<Path>();
-  packet.sensor_fusion = j["sensor_fusion"].get<SensorFusionList>();
+  packet.sensor_fusion = j["sensor_fusion"].get<FusedObjects>();
   packet.end_path_s = j["end_path_s"];
   packet.end_path_d = j["end_path_d"];
 }

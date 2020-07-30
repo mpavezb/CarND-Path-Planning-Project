@@ -77,7 +77,16 @@ struct FusedObject {
   double d;
 };
 
-typedef std::vector<FusedObject> SensorFusionList;
+struct Vehicle {
+  int id;
+  double s;
+  double d;
+  double speed;
+  double lane_id;
+};
+
+typedef std::vector<Vehicle> Vehicles;
+typedef std::vector<FusedObject> FusedObjects;
 
 struct TelemetryPacket {
   // Main car's localization Data
@@ -89,7 +98,7 @@ struct TelemetryPacket {
   double car_speed;  // mps!
 
   // A list of all other cars on the same side the road.
-  SensorFusionList sensor_fusion;
+  FusedObjects sensor_fusion;
 
   // Unvisited points from previous trajectory
   Trajectory last_trajectory;
@@ -100,13 +109,14 @@ struct TelemetryPacket {
 };
 
 struct PredictionData {
-  SensorFusionList sensor_fusion;
+  Vehicles vehicles;
   std::vector<double> lane_speeds;  // Refactor
 };
 
 struct EnvironmentData {
   float lane_width{4.0F};
   float speed_limit{50.0 / 2.237F};
+  float time_step_{0.02F};
 };
 
 struct TargetData {
@@ -118,7 +128,6 @@ struct EgoStatus {
   std::uint8_t lane_id{1};  // 0=left, 1=middle, 2=right
   float s{0.0F};
   float speed{0.0F};
-  float accel{0.0F};  // unused
   float desired_speed{49.5F / 2.237F};
   float max_acceleration{4.0F};          // unused
   float max_braking_acceleration{6.0F};  // unused

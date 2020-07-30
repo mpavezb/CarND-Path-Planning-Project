@@ -196,10 +196,11 @@ class TrajectoryGenerator {
     return abs(s - object_s) < threshold;
   }
 
-  SensorFusionList getObjectsInLane(const PredictionData& predictions,
-                                    std::uint8_t lane_id) {
-    SensorFusionList result;
-    for (const auto object : predictions.sensor_fusion) {
+  FusedObjects getObjectsInLane(const PredictionData& predictions,
+                                std::uint8_t lane_id) {
+    FusedObjects result;
+    // for (const auto object : predictions.sensor_fusion) {
+    for (const auto object : telemetry_.sensor_fusion) {
       if (isObjectInLane(object, lane_id)) {
         result.push_back(object);
       }
@@ -207,9 +208,8 @@ class TrajectoryGenerator {
     return result;
   }
 
-  SensorFusionList getObjectsInFront(const SensorFusionList& objects,
-                                     double car_s) {
-    SensorFusionList result;
+  FusedObjects getObjectsInFront(const FusedObjects& objects, double car_s) {
+    FusedObjects result;
     for (const auto object : objects) {
       if (isObjectAhead(object, car_s)) {
         result.push_back(object);
@@ -218,9 +218,9 @@ class TrajectoryGenerator {
     return result;
   }
 
-  SensorFusionList getObjectsInProximity(const SensorFusionList& objects,
-                                         double car_s) {
-    SensorFusionList result;
+  FusedObjects getObjectsInProximity(const FusedObjects& objects,
+                                     double car_s) {
+    FusedObjects result;
     for (const auto object : objects) {
       if (isObjectNear(object, car_s)) {
         result.push_back(object);
@@ -229,7 +229,7 @@ class TrajectoryGenerator {
     return result;
   }
 
-  FusedObject getNearestObject(const SensorFusionList& objects, double car_s) {
+  FusedObject getNearestObject(const FusedObjects& objects, double car_s) {
     FusedObject result;
     double nearest_distance{1000.0};
     for (const auto object : objects) {
