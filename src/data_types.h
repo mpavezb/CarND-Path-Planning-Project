@@ -15,18 +15,19 @@ struct Point {
   double y;
 };
 
-struct Pose {
-  double x;
-  double y;
-  double yaw;
+struct AnchorReference {
   double s;
   double d;
+  double x1;
+  double x2;
+  double y1;
+  double y2;
+  double yaw;
 };
 
 struct SplineAnchors {
   Path x;
   Path y;
-  Pose reference;
 };
 
 enum class TrajectoryAction : std::uint8_t {

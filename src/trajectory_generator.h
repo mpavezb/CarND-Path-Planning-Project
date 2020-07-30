@@ -11,6 +11,10 @@
 
 namespace udacity {
 
+/**
+ * Provides trajectories for different scenarios, based on the optimal speed for
+ * it.
+ */
 class TrajectoryGenerator {
  public:
   void setMap(std::shared_ptr<Map> map) { map_ = map; }
@@ -18,6 +22,42 @@ class TrajectoryGenerator {
     telemetry_ = telemetry;
   }
   void setEgoStatus(const EgoStatus& ego) { ego_ = ego; }
+
+  AnchorReference anchor_reference_;
+
+  /**
+   * Anchors are based on the previous path's endpoint whenever possible.
+   * Otherwise, the car is used as starting reference.
+   *
+   * Note that previous path end point is always further away than the car.
+   */
+  void updateAnchorReference() {
+    AnchorReference& ref = anchor_reference_;
+    auto prev_path_size = telemetry_.last_trajectory.x.size();
+    if (prev_path_size < 2) {
+      // based only on car
+      ref.yaw = telemetry_.car_yaw;
+      ref.x2 = telemetry_.car_x;
+      ref.y2 = telemetry_.car_y;
+      ref.s = telemetry_.car_s;
+      ref.d = telemetry_.car_d;
+      ref.x1 = ref.x2 - cos(ref.yaw);
+      ref.y1 = ref.y2 - sin(ref.yaw);
+      // std::cout << "[generateSplineAnchors] based on car" << std::endl;
+    } else {
+      // based only on previous endpoints
+      ref.x1 = telemetry_.last_trajectory.x[prev_path_size - 2];
+      ref.y1 = telemetry_.last_trajectory.y[prev_path_size - 2];
+      ref.x2 = telemetry_.last_trajectory.x[prev_path_size - 1];
+      ref.y2 = telemetry_.last_trajectory.y[prev_path_size - 1];
+      ref.yaw = atan2(ref.y2 - ref.y1, ref.x2 - ref.x1);
+      ref.s = telemetry_.end_path_s;
+      ref.d = telemetry_.car_d;
+      // std::cout << "[generateSplineAnchors] based on previous" << std::endl;
+    }
+  }
+
+  void step() { updateAnchorReference(); }
 
   Trajectory getTrajectoryForAction(TrajectoryAction action,
                                     const PredictionData& predictions) {
@@ -45,41 +85,12 @@ class TrajectoryGenerator {
 
   /**
    * Generate spline anchors for interpolation.
-   *
-   * Anchors are based on the previous path's endpoint whenever possible.
-   * Otherwise, the car is used as starting reference.
-   *
-   * Note that previous path end point is always further away than the car.
    */
   SplineAnchors generateSplineAnchors(std::uint8_t intended_lane_id) {
     SplineAnchors anchors;
-    Pose& ref = anchors.reference;
-
-    double prev_x;
-    double prev_y;
-
-    auto prev_path_size = telemetry_.last_trajectory.x.size();
-    if (prev_path_size < 2) {
-      // based only on car
-      ref.yaw = telemetry_.car_yaw;
-      ref.x = telemetry_.car_x;
-      ref.y = telemetry_.car_y;
-      ref.s = telemetry_.car_s;
-      ref.d = telemetry_.car_d;
-      prev_x = ref.x - cos(ref.yaw);
-      prev_y = ref.y - sin(ref.yaw);
-    } else {
-      // based only on previous endpoints
-      prev_x = telemetry_.last_trajectory.x[prev_path_size - 2];
-      prev_y = telemetry_.last_trajectory.y[prev_path_size - 2];
-      ref.x = telemetry_.last_trajectory.x[prev_path_size - 1];
-      ref.y = telemetry_.last_trajectory.y[prev_path_size - 1];
-      ref.yaw = atan2(ref.y - prev_y, ref.x - prev_x);
-      ref.s = telemetry_.end_path_s;
-      ref.d = telemetry_.car_d;
-    }
-    anchors.x = {prev_x, ref.x};
-    anchors.y = {prev_y, ref.y};
+    const AnchorReference& ref = anchor_reference_;
+    anchors.x = {ref.x1, ref.x2};
+    anchors.y = {ref.y1, ref.y2};
 
     // Add extra anchors
     int n_missing_anchors = n_anchors_ - 2;
@@ -101,26 +112,26 @@ class TrajectoryGenerator {
    */
   SplineAnchors transformToEgo(const SplineAnchors& anchors) {
     SplineAnchors result;
-    const Pose& ref = anchors.reference;
-    result.reference = anchors.reference;
+    const AnchorReference& ref = anchor_reference_;
     result.x.resize(n_anchors_);
     result.y.resize(n_anchors_);
 
     for (int i = 0; i < n_anchors_; i++) {
-      double shift_x = anchors.x[i] - ref.x;
-      double shift_y = anchors.y[i] - ref.y;
+      double shift_x = anchors.x[i] - ref.x2;
+      double shift_y = anchors.y[i] - ref.y2;
       result.x[i] = shift_x * cos(0 - ref.yaw) - shift_y * sin(0 - ref.yaw);
       result.y[i] = shift_x * sin(0 - ref.yaw) + shift_y * cos(0 - ref.yaw);
     }
     return result;
   }
 
-  Point transformToMap(const Point& p, const Pose& ref) {
+  Point transformToMap(const Point& p) {
     Point result;
+    const AnchorReference& ref = anchor_reference_;
     result.x = p.x * cos(ref.yaw) - p.y * sin(ref.yaw);
     result.y = p.x * sin(ref.yaw) + p.y * cos(ref.yaw);
-    result.x += ref.x;
-    result.y += ref.y;
+    result.x += ref.x2;
+    result.y += ref.y2;
     return result;
   }
 
@@ -146,7 +157,7 @@ class TrajectoryGenerator {
       ego_point.x = (i + 1) * target_x / N;
       ego_point.y = gen(ego_point.x);
 
-      Point map_point = transformToMap(ego_point, ego_anchors.reference);
+      Point map_point = transformToMap(ego_point);
       result.x.push_back(map_point.x);
       result.y.push_back(map_point.y);
     }

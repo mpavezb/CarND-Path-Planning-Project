@@ -54,6 +54,7 @@ class MotionPlanning {
     validator_->setEgoStatus(ego_);
     generator_->setTargetData(target_);
     validator_->setTargetData(target_);
+    generator_->step();
     StateMachine::dispatch(sm_event_);
     selected_trajectory_ = sm_event_.output->selected_trajectory;
     ego_.speed = selected_trajectory_.characteristics.speed;
