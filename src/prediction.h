@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "data_types.h"
+#include "helpers.h"
 
 namespace udacity {
 class Prediction {
@@ -16,14 +17,12 @@ class Prediction {
     telemetry_ = telemetry;
   }
 
-  std::uint8_t getLaneIdFromFrenet(double d) {
-    return fmax(fmin(2, floor(d / parameters_.lane_width)), 0);
   }
 
   FusedObjects getObjectsInLane(std::uint8_t lane_id) {
     FusedObjects result;
     for (auto object : telemetry_.sensor_fusion) {
-      if (lane_id == getLaneIdFromFrenet(object.d)) {
+      if (lane_id == getLaneIdFromFrenet(object.d, parameters_.lane_width)) {
         result.push_back(object);
       }
     }
@@ -48,9 +47,6 @@ class Prediction {
         nearest = object;
       }
     }
-    // std::cout << "[Prediction] Nearest object in front of lane ("
-    //           << (int)getLaneIdFromFrenet(nearest.d)
-    //           << ") is at distance: " << nearest_distance << std::endl;
     return nearest;
   }
 
@@ -67,8 +63,6 @@ class Prediction {
         speed = getObjectSpeed(object);
       }
     }
-    // std::cout << "[Prediction] Speed for lane (" << (int)lane_id
-    //           << ") is: " << speed << std::endl;
     return speed;
   }
 

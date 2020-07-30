@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "data_types.h"
+#include "helpers.h"
 #include "state_machine.h"
 #include "trajectory_generator.h"
 #include "trajectory_validator.h"
@@ -31,15 +32,10 @@ class MotionPlanning {
     StateMachine::StateMachine::start();
   }
 
-  void updateEgoLaneId(const TelemetryPacket& telemetry) {
-    ego_.lane_id =
-        fmax(fmin(2, floor(telemetry.car_d / parameters_.lane_width)), 0);
-  }
-
   void setTelemetry(const TelemetryPacket& telemetry) {
     generator_->setTelemetry(telemetry);
     ego_.s = telemetry.car_s;
-    updateEgoLaneId(telemetry);
+    ego_.lane_id = getLaneIdFromFrenet(ego_.s, parameters_.lane_width);
   }
 
   void setPredictions(const PredictionData& predictions) {

@@ -175,6 +175,10 @@ std::vector<double> getPathY(const udacity::Path &path) {
   return result;
 }
 
+std::uint8_t getLaneIdFromFrenet(double d, double lane_width) {
+  return fmax(fmin(2, floor(d / lane_width)), 0);
+}
+
 void printPath(const udacity::Path &path, const std::string &name) {
   std::stringstream ss;
   ss << name << "[";
