@@ -224,18 +224,15 @@ class TrajectoryGenerator {
 
     double gap_half_length = 20.0;
     bool is_gap_free = true;
-    // auto objects = getObjectsInLane(predictions, intended_lane_id);
-    // for (auto object : objects) {
-    //   double position = predictObjectPosition(object);
-    //   double distance = fabs(car_s - position);
-    //   if (distance < gap_half_length) {
-    //     // std::cout << "[Generator]: Cannot switch to lane ("
-    //     //           << (int)intended_lane_id
-    //     //           << ") because of car nearby at distance: " << distance
-    //     //           << std::endl;
-    //     return false;
-    //   }
-    // }
+
+    // TODO
+    auto objects = std::vector<Vehicle>();  // getObjectsInLane(predictions,
+                                            // intended_lane_id);
+    for (auto object : objects) {
+      if (fabs(car_s - object.predicted_s) < gap_half_length) {
+        return false;
+      }
+    }
     return true;
   }
 

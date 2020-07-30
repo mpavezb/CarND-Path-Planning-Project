@@ -34,6 +34,7 @@ struct Parameters {
   // control
   float desired_speed{49.5F / 2.237F};
   float min_distance_to_front_object{30};
+  float vehicle_in_front_threshold = 50;
 
   // trajectory generation
   int path_size_{50};
@@ -89,12 +90,16 @@ struct Vehicle {
   double d;
   double speed;
   double lane_id;
+  double predicted_s;
 };
 typedef std::vector<Vehicle> Vehicles;
 
 struct PredictionData {
   Vehicles vehicles;
-  std::vector<double> lane_speeds;  // Refactor
+  std::vector<double> lane_speeds;
+  std::vector<uint32_t> near_vehicles;
+  std::vector<uint32_t> front_vehicles;
+  std::vector<uint32_t> rear_vehicles;
 };
 
 struct EgoStatus {
