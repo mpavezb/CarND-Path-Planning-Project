@@ -8,6 +8,7 @@
 #include "data_types.h"
 #include "helpers.h"
 #include "third_party/spline.h"
+#include "trajectory.h"
 
 namespace udacity {
 
@@ -17,7 +18,9 @@ namespace udacity {
  */
 class TrajectoryGenerator {
  public:
-  void setMap(std::shared_ptr<Map> map) { map_ = map; }
+  TrajectoryGenerator(std::shared_ptr<Map> map, const Parameters& parameters)
+      : map_(map), parameters_(parameters) {}
+
   void setTelemetry(const TelemetryPacket& telemetry) {
     telemetry_ = telemetry;
   }
@@ -31,7 +34,7 @@ class TrajectoryGenerator {
    */
   void updateAnchorReference() {
     AnchorReference& ref = anchor_reference_;
-    auto prev_path_size = telemetry_.last_trajectory.x.size();
+    auto prev_path_size = telemetry_.last_trajectory_x.size();
     if (prev_path_size < 2) {
       // based only on car
       ref.yaw = telemetry_.car_yaw;
@@ -44,10 +47,10 @@ class TrajectoryGenerator {
       // std::cout << "[generateSplineAnchors] based on car" << std::endl;
     } else {
       // based only on previous endpoints
-      ref.x1 = telemetry_.last_trajectory.x[prev_path_size - 2];
-      ref.y1 = telemetry_.last_trajectory.y[prev_path_size - 2];
-      ref.x2 = telemetry_.last_trajectory.x[prev_path_size - 1];
-      ref.y2 = telemetry_.last_trajectory.y[prev_path_size - 1];
+      ref.x1 = telemetry_.last_trajectory_x[prev_path_size - 2];
+      ref.y1 = telemetry_.last_trajectory_y[prev_path_size - 2];
+      ref.x2 = telemetry_.last_trajectory_x[prev_path_size - 1];
+      ref.y2 = telemetry_.last_trajectory_y[prev_path_size - 1];
       ref.yaw = atan2(ref.y2 - ref.y1, ref.x2 - ref.x1);
       ref.s = telemetry_.end_path_s;
       ref.d = telemetry_.car_d;
@@ -91,11 +94,11 @@ class TrajectoryGenerator {
     anchors.y = {ref.y1, ref.y2};
 
     // Add extra anchors
-    int n_missing_anchors = n_anchors_ - 2;
+    int n_missing_anchors = parameters_.n_anchors_ - 2;
     for (int i = 0; i < n_missing_anchors; ++i) {
-      float spacing = look_ahead_distance_ / n_missing_anchors;
+      float spacing = parameters_.look_ahead_distance_ / n_missing_anchors;
       float s = ref.s + (i + 1) * spacing;
-      float d = environment_.lane_width * (0.5 + intended_lane_id);
+      float d = parameters_.lane_width * (0.5 + intended_lane_id);
       std::vector<double> anchor =
           getXY(s, d, map_->waypoints_s, map_->waypoints_x, map_->waypoints_y);
       anchors.x.push_back(anchor[0]);
@@ -111,10 +114,10 @@ class TrajectoryGenerator {
   SplineAnchors transformToEgo(const SplineAnchors& anchors) {
     SplineAnchors result;
     const AnchorReference& ref = anchor_reference_;
-    result.x.resize(n_anchors_);
-    result.y.resize(n_anchors_);
+    result.x.resize(parameters_.n_anchors_);
+    result.y.resize(parameters_.n_anchors_);
 
-    for (int i = 0; i < n_anchors_; i++) {
+    for (int i = 0; i < parameters_.n_anchors_; i++) {
       double shift_x = anchors.x[i] - ref.x2;
       double shift_y = anchors.y[i] - ref.y2;
       result.x[i] = shift_x * cos(0 - ref.yaw) - shift_y * sin(0 - ref.yaw);
@@ -139,16 +142,18 @@ class TrajectoryGenerator {
    */
   Trajectory interpolateMissingPoints(const SplineAnchors& ego_anchors,
                                       double speed) {
-    Trajectory result = telemetry_.last_trajectory;
-    int missing_points = path_size_ - result.x.size();
+    Trajectory result;
+    result.x = telemetry_.last_trajectory_x;
+    result.y = telemetry_.last_trajectory_y;
+    int missing_points = parameters_.path_size_ - result.x.size();
 
     tk::spline gen;
     gen.set_points(ego_anchors.x, ego_anchors.y);
 
-    double target_x = look_ahead_distance_;
+    double target_x = parameters_.look_ahead_distance_;
     double target_y = gen(target_x);
     double target_dist = distance(0, 0, target_x, target_y);
-    double N = target_dist / (speed * environment_.time_step_);
+    double N = target_dist / (speed * parameters_.time_step_);
 
     for (int i = 0; i < missing_points; ++i) {
       Point ego_point;
@@ -263,18 +268,18 @@ class TrajectoryGenerator {
     if (is_object_ahead) {
       if (is_object_behind) {
         // cannot slow down agressively!
-        delta_speed = -0.5 * deceleration;
+        delta_speed = -0.5 * parameters_.deceleration;
       } else {
         // slow down to keep distance
-        delta_speed =
-            -1.0 * fmin(fabs(ego_.speed - object_speed), deceleration);
+        delta_speed = -1.0 * fmin(fabs(ego_.speed - object_speed),
+                                  parameters_.deceleration);
       }
     } else {
       // keep max velocity possible
-      delta_speed = acceleration;
+      delta_speed = parameters_.acceleration;
     }
 
-    return fmax(0, fmin(ego_.speed + delta_speed, ego_.desired_speed));
+    return fmax(0, fmin(ego_.speed + delta_speed, parameters_.desired_speed));
 
     // PrepareFor...
     // double speed_actual = getSpeedForecast(predictions, endpoint_lane_id);
@@ -294,7 +299,7 @@ class TrajectoryGenerator {
   bool isLaneChangePossible(const PredictionData& predictions,
                             std::uint8_t intended_lane_id) {
     double car_s = ego_.s;
-    if (telemetry_.last_trajectory.x.size() > 0) {
+    if (telemetry_.last_trajectory_x.size() > 0) {
       car_s = telemetry_.end_path_s;
     }
 
@@ -397,24 +402,13 @@ class TrajectoryGenerator {
                                         endpoint_lane_id);
   }
 
-  void setTargetData(const TargetData& target) { target_ = target; }
-
  private:
   // Input Data
   std::shared_ptr<Map> map_;
+  Parameters parameters_;
   TelemetryPacket telemetry_;
-
-  EnvironmentData environment_;
-  TargetData target_;
   EgoStatus ego_;
-
-  // algorithms
   AnchorReference anchor_reference_;
-  int path_size_{50};
-  int n_anchors_{5};
-  float look_ahead_distance_{50.0F};
-  float acceleration{0.1};
-  float deceleration{0.2};
 };  // namespace udacity
 
 }  // namespace udacity

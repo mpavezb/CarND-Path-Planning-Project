@@ -13,9 +13,9 @@ namespace udacity {
 
 class MapReader {
  public:
-  static Map readMap(const std::string& filename) {
+  static Map readMap(const Parameters& parameters) {
     Map map{};
-    std::ifstream in_map_(filename.c_str(), std::ifstream::in);
+    std::ifstream in_map_(parameters.map_filename.c_str(), std::ifstream::in);
     std::string line;
     while (getline(in_map_, line)) {
       std::istringstream iss(line);
@@ -35,7 +35,7 @@ class MapReader {
       map.waypoints_dx.push_back(d_x);
       map.waypoints_dy.push_back(d_y);
     }
-    map.filename = filename;
+    map.max_s = parameters.max_s;
     return map;
   }
 };
@@ -63,8 +63,8 @@ void from_json(const nlohmann::json& j, TelemetryPacket& packet) {
   packet.car_d = j["d"];
   packet.car_yaw = deg2rad(j["yaw"]);
   packet.car_speed = ((double)j["speed"]) / 2.237;
-  packet.last_trajectory.x = j["previous_path_x"].get<Path>();
-  packet.last_trajectory.y = j["previous_path_y"].get<Path>();
+  packet.last_trajectory_x = j["previous_path_x"].get<Path>();
+  packet.last_trajectory_y = j["previous_path_y"].get<Path>();
   packet.sensor_fusion = j["sensor_fusion"].get<FusedObjects>();
   packet.end_path_s = j["end_path_s"];
   packet.end_path_d = j["end_path_d"];

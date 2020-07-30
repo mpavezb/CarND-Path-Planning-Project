@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "data_types.h"
+#include "trajectory.h"
 
 namespace udacity {
 
@@ -14,7 +15,7 @@ class CostFunction {
    * Returns cost in range [0,1]. Good trajectories yield lower cost.
    */
   virtual double getCost(const Trajectory &, const PredictionData &,
-                         const TargetData &, const EgoStatus &) = 0;
+                         const EgoStatus &, const Parameters &) = 0;
 };
 
 /**
@@ -24,7 +25,7 @@ class CostFunction {
 class SpeedCostFunction : public CostFunction {
  public:
   double getCost(const Trajectory &trajectory, const PredictionData &,
-                 const TargetData &, const EgoStatus &) override {
+                 const EgoStatus &, const Parameters &) override {
     double cost = 0;
     double speed = trajectory.characteristics.speed;
     if (speed < kBestSpeed) {
@@ -54,12 +55,12 @@ class SpeedCostFunction : public CostFunction {
 class GoalDistanceCostFunction : public CostFunction {
  public:
   double getCost(const Trajectory &trajectory,
-                 const PredictionData &predictions, const TargetData &target,
-                 const EgoStatus &ego) override {
-    int goal_lane = target.lane_id;
+                 const PredictionData &predictions, const EgoStatus &ego,
+                 const Parameters &parameters) override {
+    int goal_lane = parameters.goal_lane_id;
     int intended_lane = trajectory.characteristics.intended_lane_id;
     int final_lane = trajectory.characteristics.endpoint_lane_id;
-    double distance_to_goal = target.s_position - ego.s;
+    double distance_to_goal = parameters.goal_s - ego.s;
 
     int delta_d = 2.0 * goal_lane - intended_lane - final_lane;
     double cost = 1 - exp(-(std::abs(delta_d) / distance_to_goal));
@@ -78,8 +79,8 @@ class GoalDistanceCostFunction : public CostFunction {
 class InefficientLaneCostFunction : public CostFunction {
  public:
   double getCost(const Trajectory &trajectory,
-                 const PredictionData &predictions, const TargetData &,
-                 const EgoStatus &ego) override {
+                 const PredictionData &predictions, const EgoStatus &ego,
+                 const Parameters &) override {
     const auto lane_speeds = predictions.lane_speeds;
 
     int current_speed = trajectory.characteristics.speed;
@@ -100,7 +101,7 @@ class InefficientLaneCostFunction : public CostFunction {
 
 class TrajectoryValidator {
  public:
-  TrajectoryValidator() {
+  TrajectoryValidator(const Parameters &parameters) : parameters_(parameters) {
     cost_functions.emplace_back(new SpeedCostFunction());
     cost_functions.emplace_back(new GoalDistanceCostFunction());
     cost_functions.emplace_back(new InefficientLaneCostFunction());
@@ -135,19 +136,19 @@ class TrajectoryValidator {
                            const PredictionData &predictions) {
     double cost = 0;
     for (auto &cost_function : cost_functions) {
-      cost += cost_function->getCost(trajectory, predictions, target_, ego_);
+      cost +=
+          cost_function->getCost(trajectory, predictions, ego_, parameters_);
     }
     return cost;
   }
 
-  void setTargetData(const TargetData &target) { target_ = target; }
   void setEgoStatus(const EgoStatus &ego) { ego_ = ego; }
   void setPredictionData(const PredictionData &predictions) {
     predictions_ = predictions;
   }
 
  private:
-  TargetData target_;
+  Parameters parameters_;
   EgoStatus ego_;
   PredictionData predictions_;
   std::vector<std::unique_ptr<CostFunction>> cost_functions;

@@ -14,14 +14,12 @@ namespace udacity {
 
 class MotionPlanning {
  public:
-  MotionPlanning(const Map& map) {
-    map_ = std::shared_ptr<Map>(new Map(map));
-    target_.s_position = map_->max_s;
-    generator_ =
-        std::shared_ptr<TrajectoryGenerator>(new TrajectoryGenerator());
-    validator_ =
-        std::shared_ptr<TrajectoryValidator>(new TrajectoryValidator());
-    generator_->setMap(map_);
+  MotionPlanning(std::shared_ptr<Map> map, const Parameters& parameters)
+      : map_(map), parameters_(parameters) {
+    generator_ = std::shared_ptr<TrajectoryGenerator>(
+        new TrajectoryGenerator(map, parameters));
+    validator_ = std::shared_ptr<TrajectoryValidator>(
+        new TrajectoryValidator(parameters));
 
     // Not good, but seems like the only way to share data with the tiny FSM
     // is through the payload.
@@ -35,7 +33,7 @@ class MotionPlanning {
 
   void updateEgoLaneId(const TelemetryPacket& telemetry) {
     ego_.lane_id =
-        fmax(fmin(2, floor(telemetry.car_d / environment_.lane_width)), 0);
+        fmax(fmin(2, floor(telemetry.car_d / parameters_.lane_width)), 0);
   }
 
   void setTelemetry(const TelemetryPacket& telemetry) {
@@ -52,8 +50,6 @@ class MotionPlanning {
   void step() {
     generator_->setEgoStatus(ego_);
     validator_->setEgoStatus(ego_);
-    generator_->setTargetData(target_);
-    validator_->setTargetData(target_);
     generator_->step();
     StateMachine::dispatch(sm_event_);
     selected_trajectory_ = sm_event_.output->selected_trajectory;
@@ -63,9 +59,8 @@ class MotionPlanning {
   Trajectory getTrajectory() { return selected_trajectory_; }
 
  private:
-  EnvironmentData environment_;
+  Parameters parameters_;
   EgoStatus ego_;
-  TargetData target_;
   UpdateEvent sm_event_;
   Trajectory selected_trajectory_;
   std::shared_ptr<Map> map_;

@@ -9,14 +9,15 @@
 namespace udacity {
 class Prediction {
  public:
-  Prediction(const Map& map) { map_ = std::shared_ptr<Map>(new Map(map)); }
+  Prediction(std::shared_ptr<Map> map, const Parameters& parameters)
+      : map_(map), parameters_(parameters) {}
 
   void setTelemetry(const TelemetryPacket& telemetry) {
     telemetry_ = telemetry;
   }
 
   std::uint8_t getLaneIdFromFrenet(double d) {
-    return fmax(fmin(2, floor(d / environment_.lane_width)), 0);
+    return fmax(fmin(2, floor(d / parameters_.lane_width)), 0);
   }
 
   FusedObjects getObjectsInLane(std::uint8_t lane_id) {
@@ -58,7 +59,7 @@ class Prediction {
   }
 
   double getLaneSpeed(std::uint8_t lane_id, double distance_threshold = 50) {
-    double speed = environment_.speed_limit;
+    double speed = parameters_.speed_limit;
     auto objects = getObjectsInLane(lane_id);
     if (not objects.empty()) {
       auto object = getNearestObjectInFront(objects);
@@ -101,9 +102,9 @@ class Prediction {
   PredictionData getPredictions() { return predictions; }
 
  private:
+  Parameters parameters_;
   TelemetryPacket telemetry_;
   PredictionData predictions;
-  EnvironmentData environment_;
   std::shared_ptr<Map> map_;
 };
 

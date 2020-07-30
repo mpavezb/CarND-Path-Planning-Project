@@ -9,6 +9,7 @@
 #include "prediction.h"
 #include "serialization.h"
 #include "third_party/json.hpp"
+#include "trajectory.h"
 
 // for convenience
 using nlohmann::json;
@@ -16,14 +17,10 @@ using std::string;
 using namespace udacity;
 
 int main() {
-  // Waypoint map to read from
-  string map_file_ = "../data/highway_map.csv";
-  // The max s value before wrapping around the track back to 0
-  double max_s = 6945.554;
-  Map map = MapReader::readMap(map_file_);
-  map.max_s = max_s;
-  MotionPlanning motion_planning{map};
-  Prediction prediction{map};
+  Parameters parameters;
+  std::shared_ptr<Map> map{new Map(MapReader::readMap(parameters))};
+  MotionPlanning motion_planning{map, parameters};
+  Prediction prediction{map, parameters};
 
   uWS::Hub h;
   h.onMessage([&motion_planning, &prediction](uWS::WebSocket<uWS::SERVER> ws,
