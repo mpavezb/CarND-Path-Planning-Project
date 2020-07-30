@@ -150,7 +150,7 @@ class TrajectoryGenerator {
     double target_x = look_ahead_distance_;
     double target_y = gen(target_x);
     double target_dist = distance(0, 0, target_x, target_y);
-    double N = target_dist * path_execution_frequency_ / speed;
+    double N = target_dist / (speed * environment_.time_step_);
 
     for (int i = 0; i < missing_points; ++i) {
       Point ego_point;
@@ -180,7 +180,7 @@ class TrajectoryGenerator {
     // Then we project the object in time to be prev_size steps ahead.
     int prev_size = telemetry_.last_trajectory.x.size();
     if (prev_size > 0) {
-      s += prev_size * speed / path_execution_frequency_;
+      s += prev_size * speed * environment_.time_step_;
     }
     return s;
   }
@@ -428,7 +428,6 @@ class TrajectoryGenerator {
   // algorithms
   int path_size_{50};
   int n_anchors_{5};
-  float path_execution_frequency_{1 / .02F};
   float look_ahead_distance_{50.0F};
 
   // speed
