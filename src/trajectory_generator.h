@@ -268,15 +268,15 @@ class TrajectoryGenerator {
     if (is_object_ahead) {
       if (is_object_behind) {
         // cannot slow down agressively!
-        delta_speed = -0.5 * speed_brake_delta_mps_;
+        delta_speed = -0.5 * deceleration;
       } else {
         // slow down to keep distance
-        delta_speed = -1.0 * fmin(fabs(ego_.speed - object_speed),
-                                  speed_brake_delta_mps_);
+        delta_speed =
+            -1.0 * fmin(fabs(ego_.speed - object_speed), deceleration);
       }
     } else {
       // keep max velocity possible
-      delta_speed = speed_control_delta_mps_;
+      delta_speed = acceleration;
     }
 
     return fmax(0, fmin(ego_.speed + delta_speed, ego_.desired_speed));
@@ -429,10 +429,8 @@ class TrajectoryGenerator {
   int path_size_{50};
   int n_anchors_{5};
   float look_ahead_distance_{50.0F};
-
-  // speed
-  float speed_control_delta_mps_{0.1F};
-  float speed_brake_delta_mps_{0.2F};
+  float acceleration{0.1};
+  float deceleration{0.2};
 };  // namespace udacity
 
 }  // namespace udacity
