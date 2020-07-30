@@ -280,6 +280,20 @@ class TrajectoryGenerator {
     }
 
     return fmax(0, fmin(ego_.speed + delta_speed, ego_.desired_speed));
+
+    // PrepareFor...
+    // double speed_actual = getSpeedForecast(predictions, endpoint_lane_id);
+    // double speed_next = getSpeedForecast(predictions, intended_lane_id);
+
+    // double speed;
+    // bool is_object_behind = false;
+    // if (is_object_behind) {
+    //   // keep speed of current lane so as to not collide with car behind
+    //   speed = speed_actual;
+    // } else {
+    //   // prefer the lowest speed from both lanes
+    //   speed = fmin(speed_actual, speed_next);
+    // }
   }
 
   bool isLaneChangePossible(const PredictionData& predictions,
@@ -328,63 +342,39 @@ class TrajectoryGenerator {
     return trajectory;
   }
 
-  Trajectory generateKeepLaneTrajectory(const PredictionData& predictions) {
-    std::uint8_t endpoint_lane_id = ego_.lane_id;
-    std::uint8_t intended_lane_id = ego_.lane_id;
-    double speed = getSpeedForecast(predictions, intended_lane_id);
+  Trajectory generateInvalidTrajectory() {
+    Trajectory invalid_trajectory;
+    invalid_trajectory.characteristics.is_valid = false;
+    return invalid_trajectory;
+  }
+
+  Trajectory generateTrajectory(const PredictionData& predictions,
+                                std::uint8_t intended_lane_id,
+                                std::uint8_t endpoint_lane_id) {
+    double speed =
+        getOptimalSpeed(predictions, intended_lane_id, endpoint_lane_id);
     return generateTrajectoryFromSpline(intended_lane_id, endpoint_lane_id,
                                         speed);
   }
 
+  Trajectory generateKeepLaneTrajectory(const PredictionData& predictions) {
+    std::uint8_t intended_lane_id = ego_.lane_id;
+    std::uint8_t endpoint_lane_id = ego_.lane_id;
+    return generateTrajectory(predictions, intended_lane_id, endpoint_lane_id);
+  }
+
   Trajectory generatePrepareLaneChangeLeftTrajectory(
       const PredictionData& predictions) {
-    // TODO: planner should not attempt this when already on leftmost lane
     std::uint8_t intended_lane_id = fmax(0, ego_.lane_id - 1);
     std::uint8_t endpoint_lane_id = ego_.lane_id;
-
-    double speed_actual = getSpeedForecast(predictions, endpoint_lane_id);
-    double speed_next = getSpeedForecast(predictions, intended_lane_id);
-
-    double speed;
-    bool is_object_behind = false;
-    if (is_object_behind) {
-      // keep speed of current lane so as to not collide with car behind
-      speed = speed_actual;
-    } else {
-      // prefer the lowest speed from both lanes
-      speed = fmin(speed_actual, speed_next);
-    }
-
-    return generateTrajectoryFromSpline(intended_lane_id, endpoint_lane_id,
-                                        speed);
+    return generateTrajectory(predictions, intended_lane_id, endpoint_lane_id);
   }
 
   Trajectory generatePrepareLaneChangeRightTrajectory(
       const PredictionData& predictions) {
     std::uint8_t intended_lane_id = fmin(2, ego_.lane_id + 1);
     std::uint8_t endpoint_lane_id = ego_.lane_id;
-
-    double speed_actual = getSpeedForecast(predictions, endpoint_lane_id);
-    double speed_next = getSpeedForecast(predictions, intended_lane_id);
-
-    double speed;
-    bool is_object_behind = false;
-    if (is_object_behind) {
-      // keep speed of current lane so as to not collide with car behind
-      speed = speed_actual;
-    } else {
-      // prefer the lowest speed from both lanes
-      speed = fmin(speed_actual, speed_next);
-    }
-
-    return generateTrajectoryFromSpline(intended_lane_id, endpoint_lane_id,
-                                        speed);
-  }
-
-  Trajectory generateInvalidTrajectory() {
-    Trajectory invalid_trajectory;
-    invalid_trajectory.characteristics.is_valid = false;
-    return invalid_trajectory;
+    return generateTrajectory(predictions, intended_lane_id, endpoint_lane_id);
   }
 
   Trajectory generateLaneChangeTrajectory(const PredictionData& predictions,
@@ -393,9 +383,7 @@ class TrajectoryGenerator {
     if (!isLaneChangePossible(predictions, intended_lane_id)) {
       return generateInvalidTrajectory();
     }
-    double speed = getSpeedForecast(predictions, intended_lane_id);
-    return generateTrajectoryFromSpline(intended_lane_id, endpoint_lane_id,
-                                        speed);
+    return generateTrajectory(predictions, intended_lane_id, endpoint_lane_id);
   }
 
   Trajectory generateLaneChangeLeftTrajectory(
