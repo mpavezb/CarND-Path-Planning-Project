@@ -52,8 +52,11 @@ void from_json(const nlohmann::json& j, FusedObject& object) {
 }
 
 void from_json(const nlohmann::json& j, Path& path) {
-  std::vector<double> values = j;
-  path = values;
+  std::vector<double> x = j["previous_path_x"];
+  std::vector<double> y = j["previous_path_y"];
+  for (int i = 0; i < x.size(); ++i) {
+    path.push_back(Point{x[i], y[i]});
+  }
 }
 
 void from_json(const nlohmann::json& j, TelemetryPacket& packet) {
@@ -63,8 +66,7 @@ void from_json(const nlohmann::json& j, TelemetryPacket& packet) {
   packet.car_d = j["d"];
   packet.car_yaw = deg2rad(j["yaw"]);
   packet.car_speed = ((double)j["speed"]) / 2.237;
-  packet.last_trajectory_x = j["previous_path_x"].get<Path>();
-  packet.last_trajectory_y = j["previous_path_y"].get<Path>();
+  packet.last_path = j.get<Path>();
   packet.sensor_fusion = j["sensor_fusion"].get<FusedObjects>();
   packet.end_path_s = j["end_path_s"];
   packet.end_path_d = j["end_path_d"];

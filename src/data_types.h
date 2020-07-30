@@ -5,10 +5,17 @@
 #include <string>
 #include <vector>
 
+/**
+ * Using SI units. Non SI data is converted during deserialization.
+ */
+
 namespace udacity {
 
-typedef std::vector<double> Path;
-typedef std::vector<Path> Paths;
+struct Point {
+  double x;
+  double y;
+};
+typedef std::vector<Point> Path;
 
 struct Parameters {
   // map
@@ -38,31 +45,11 @@ struct Parameters {
 
 struct Map {
   double max_s{0.0};
-  Path waypoints_x;
-  Path waypoints_y;
-  Path waypoints_s;
-  Path waypoints_dx;
-  Path waypoints_dy;
-};
-
-struct Point {
-  double x;
-  double y;
-};
-
-struct AnchorReference {
-  double s;
-  double d;
-  double x1;
-  double x2;
-  double y1;
-  double y2;
-  double yaw;
-};
-
-struct SplineAnchors {
-  Path x;
-  Path y;
+  std::vector<double> waypoints_x;
+  std::vector<double> waypoints_y;
+  std::vector<double> waypoints_s;
+  std::vector<double> waypoints_dx;
+  std::vector<double> waypoints_dy;
 };
 
 struct FusedObject {
@@ -74,16 +61,6 @@ struct FusedObject {
   double s;
   double d;
 };
-
-struct Vehicle {
-  int id;
-  double s;
-  double d;
-  double speed;
-  double lane_id;
-};
-
-typedef std::vector<Vehicle> Vehicles;
 typedef std::vector<FusedObject> FusedObjects;
 
 struct TelemetryPacket {
@@ -93,19 +70,27 @@ struct TelemetryPacket {
   double car_s;
   double car_d;
   double car_yaw;
-  double car_speed;  // mps!
+  double car_speed;
 
   // A list of all other cars on the same side the road.
   FusedObjects sensor_fusion;
 
   // Unvisited points from previous trajectory
-  Path last_trajectory_x;
-  Path last_trajectory_y;
+  Path last_path;
 
   // Previous path's end s and d values
   double end_path_s;
   double end_path_d;
 };
+
+struct Vehicle {
+  int id;
+  double s;
+  double d;
+  double speed;
+  double lane_id;
+};
+typedef std::vector<Vehicle> Vehicles;
 
 struct PredictionData {
   Vehicles vehicles;

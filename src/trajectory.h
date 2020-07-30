@@ -5,6 +5,18 @@
 
 namespace udacity {
 
+struct AnchorReference {
+  double s;
+  double d;
+  double x1;
+  double x2;
+  double y1;
+  double y2;
+  double yaw;
+};
+
+typedef Path SplineAnchors;
+
 enum class TrajectoryAction : std::uint8_t {
   kKeepLane,
   kChangeLaneLeft,
@@ -23,8 +35,7 @@ struct TrajectoryCharacteristics {
 };
 
 struct Trajectory {
-  Path x;
-  Path y;
+  Path path;
   TrajectoryCharacteristics characteristics;
 
   bool operator<(const Trajectory& other) const {

@@ -47,8 +47,8 @@ int main() {
           Trajectory trajectory = motion_planning.getTrajectory();
 
           json msgJson;
-          msgJson["next_x"] = trajectory.x;
-          msgJson["next_y"] = trajectory.y;
+          msgJson["next_x"] = getPathX(trajectory.path);
+          msgJson["next_y"] = getPathY(trajectory.path);
           auto msg = "42[\"control\"," + msgJson.dump() + "]";
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }  // end "telemetry" if

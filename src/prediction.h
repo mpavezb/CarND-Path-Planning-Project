@@ -99,6 +99,84 @@ class Prediction {
     updateLaneSpeeds();
   }
 
+  bool isObjectInLane(const FusedObject& object, std::uint8_t lane_id) {
+    double lane_width = parameters_.lane_width;
+    double center_lane_d = lane_width * (0.5 + lane_id);
+    double left_boundary_d = center_lane_d - lane_width / 2.0;
+    double right_boundary_d = center_lane_d + lane_width / 2.0;
+    return left_boundary_d < object.d && object.d < right_boundary_d;
+  }
+
+  double predictObjectPosition(const FusedObject& object) {
+    double s = object.s;
+    double speed = sqrt(object.vx * object.vx + object.vy * object.vy);
+    // If using the previous path, then we are not yet there??
+    // Then we project the object in time to be prev_size steps ahead.
+    int prev_size = telemetry_.last_path.size();
+    if (prev_size > 0) {
+      s += prev_size * speed * parameters_.time_step_;
+    }
+    return s;
+  }
+
+  bool isObjectAhead(const FusedObject& object, double s) {
+    double object_s = predictObjectPosition(object);
+    return s < object_s;
+  }
+
+  bool isObjectNear(const FusedObject& object, double s) {
+    return true;
+    // double object_s = predictObjectPosition(object);
+    // double threshold = ego_.min_distance_to_front_object;
+    // return abs(s - object_s) < threshold;
+  }
+
+  FusedObjects getObjectsInLane(const PredictionData& predictions,
+                                std::uint8_t lane_id) {
+    FusedObjects result;
+    // for (const auto object : predictions.sensor_fusion) {
+    for (const auto object : telemetry_.sensor_fusion) {
+      if (isObjectInLane(object, lane_id)) {
+        result.push_back(object);
+      }
+    }
+    return result;
+  }
+
+  FusedObjects getObjectsInFront(const FusedObjects& objects, double car_s) {
+    FusedObjects result;
+    for (const auto object : objects) {
+      if (isObjectAhead(object, car_s)) {
+        result.push_back(object);
+      }
+    }
+    return result;
+  }
+
+  FusedObjects getObjectsInProximity(const FusedObjects& objects,
+                                     double car_s) {
+    FusedObjects result;
+    for (const auto object : objects) {
+      if (isObjectNear(object, car_s)) {
+        result.push_back(object);
+      }
+    }
+    return result;
+  }
+
+  FusedObject getNearestObject(const FusedObjects& objects, double car_s) {
+    FusedObject result;
+    double nearest_distance{1000.0};
+    for (const auto object : objects) {
+      double distance = predictObjectPosition(object);
+      if (distance < nearest_distance) {
+        result = object;
+        nearest_distance = distance;
+      }
+    }
+    return result;
+  }
+
   PredictionData getPredictions() { return predictions; }
 
  private:

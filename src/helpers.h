@@ -159,14 +159,30 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s,
   return {x, y};
 }
 
+std::vector<double> getPathX(const udacity::Path &path) {
+  std::vector<double> result;
+  for (const auto &point : path) {
+    result.push_back(point.x);
+  }
+  return result;
+}
+
+std::vector<double> getPathY(const udacity::Path &path) {
+  std::vector<double> result;
+  for (const auto &point : path) {
+    result.push_back(point.y);
+  }
+  return result;
+}
+
 void printPath(const udacity::Path &path, const std::string &name) {
   std::stringstream ss;
   ss << name << "[";
   for (int i = 0; i < path.size() - 1; ++i) {
-    ss << path[i] << ", ";
+    ss << path[i].x << ", ";
   }
   if (path.size() > 0) {
-    ss << path[path.size() - 1];
+    ss << path[path.size() - 1].x;
   }
   ss << "]";
   std::cout << ss.str() << std::endl;
