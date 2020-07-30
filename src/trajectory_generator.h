@@ -23,8 +23,6 @@ class TrajectoryGenerator {
   }
   void setEgoStatus(const EgoStatus& ego) { ego_ = ego; }
 
-  AnchorReference anchor_reference_;
-
   /**
    * Anchors are based on the previous path's endpoint whenever possible.
    * Otherwise, the car is used as starting reference.
@@ -242,24 +240,21 @@ class TrajectoryGenerator {
     return result;
   }
 
-  double getSpeedForecast(const PredictionData& predictions,
-                          std::uint8_t lane_id) {
-    // TODO: update speed according to acceleration/braking
-    // TODO: speed from telemetry is not reliable. Why?
+  double getOptimalSpeed(const PredictionData& predictions,
+                         std::uint8_t intended_lane_id,
+                         std::uint8_t endpoint_lane_id) {
+    const AnchorReference& ref = anchor_reference_;
+
+    // Get speed from object in front
     bool is_object_ahead = false;
     bool is_object_behind = false;
 
-    double car_s = ego_.s;
-    if (telemetry_.last_trajectory.x.size() > 1) {
-      car_s = telemetry_.end_path_s;
-    }
-
     double object_speed{0.0};
-    auto objects_in_lane = getObjectsInLane(predictions, lane_id);
-    auto objects_in_front = getObjectsInFront(objects_in_lane, car_s);
-    auto objects_near = getObjectsInProximity(objects_in_front, car_s);
+    auto objects_in_lane = getObjectsInLane(predictions, endpoint_lane_id);
+    auto objects_in_front = getObjectsInFront(objects_in_lane, ref.s);
+    auto objects_near = getObjectsInProximity(objects_in_front, ref.s);
     if (!objects_near.empty()) {
-      auto object = getNearestObject(objects_near, car_s);
+      auto object = getNearestObject(objects_near, ref.s);
       object_speed = sqrt(object.vx * object.vx + object.vy * object.vy);
       is_object_ahead = true;
     }
@@ -414,6 +409,7 @@ class TrajectoryGenerator {
   EgoStatus ego_;
 
   // algorithms
+  AnchorReference anchor_reference_;
   int path_size_{50};
   int n_anchors_{5};
   float look_ahead_distance_{50.0F};
