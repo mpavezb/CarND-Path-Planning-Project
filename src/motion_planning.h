@@ -1,7 +1,6 @@
 #ifndef MOTION_PLANNING_H_
 #define MOTION_PLANNING_H_
 
-#include <iostream>
 #include <memory>
 #include <vector>
 

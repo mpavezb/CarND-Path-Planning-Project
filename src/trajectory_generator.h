@@ -1,7 +1,6 @@
 #ifndef TRAJECTORY_GENERATOR_H_
 #define TRAJECTORY_GENERATOR_H_
 
-#include <iostream>
 #include <memory>
 #include <vector>
 
@@ -44,7 +43,6 @@ class TrajectoryGenerator {
       ref.d = telemetry_.car_d;
       ref.x1 = ref.x2 - cos(ref.yaw);
       ref.y1 = ref.y2 - sin(ref.yaw);
-      // std::cout << "[generateSplineAnchors] based on car" << std::endl;
     } else {
       // based only on previous endpoints
       ref.x1 = telemetry_.last_path[prev_path_size - 2].x;
@@ -54,7 +52,6 @@ class TrajectoryGenerator {
       ref.yaw = atan2(ref.y2 - ref.y1, ref.x2 - ref.x1);
       ref.s = telemetry_.end_path_s;
       ref.d = telemetry_.car_d;
-      // std::cout << "[generateSplineAnchors] based on previous" << std::endl;
     }
   }
 
