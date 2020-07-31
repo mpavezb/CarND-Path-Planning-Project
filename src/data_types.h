@@ -91,8 +91,12 @@ struct Vehicle {
   double d;
   double speed;
   double lane_id;
+  double distance;  // abs
   double predicted_s;
-  double predicted_distance;
+  double predicted_distance;  // abs
+  bool is_ahead;
+  bool is_behind;
+  bool is_near;
 };
 typedef std::vector<Vehicle> Vehicles;
 

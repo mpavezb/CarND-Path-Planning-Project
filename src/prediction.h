@@ -17,61 +17,46 @@ class Prediction {
     telemetry_ = telemetry;
   }
 
-  void step() { predictions_.vehicles = predictVehicles(); }
+  void step() {
+    predictions_.vehicles = predictVehicles();
+    updateLaneSpeeds();
+  }
 
   PredictionData getPredictions() { return predictions_; }
 
  private:
-  FusedObjects getObjectsInLane(std::uint8_t lane_id) {
-    FusedObjects result;
-    for (auto object : telemetry_.sensor_fusion) {
-      if (lane_id == getLaneIdFromFrenet(object.d, parameters_.lane_width)) {
-        result.push_back(object);
-      }
-    }
-    return result;
-  }
+  // Vehicles getVehiclesInLane(std::uint8_t lane_id) {
+  //   Vehicles result;
+  //   for (const auto& vehicle : predictions_.vehicles) {
+  //     if (lane_id == vehicle.lane_id) {
+  //       result.push_back(vehicle);
+  //     }
+  //   }
+  //   return result;
+  // }
 
-  bool isVehicleAhead(const Vehicle& vehicle, double s) {
-    return s < vehicle.predicted_s;
-  }
-
-  bool isObjectInFront(const FusedObject& object) {
-    return object.s > telemetry_.car_s;
-  }
-
-  double getDistanceToObject(const FusedObject& object) {
-    return fabs(object.s - telemetry_.car_s);
-  }
-
-  FusedObject getNearestObjectInFront(const FusedObjects& objects) {
+  std::pair<Vehicle, bool> getNearestVehicleAhead(std::uint8_t lane_id) {
     double nearest_distance = map_->max_s;
-    FusedObject nearest;
-    for (auto object : objects) {
-      double distance = getDistanceToObject(object);
-      if (isObjectInFront(object) and distance < nearest_distance) {
-        nearest_distance = distance;
-        nearest = object;
+    Vehicle nearest;
+    bool found{false};
+    for (const auto& vehicle : predictions_.vehicles) {
+      if (vehicle.is_ahead and vehicle.distance < nearest_distance) {
+        nearest_distance = vehicle.distance;
+        nearest = vehicle;
+        found = true;
       }
     }
-    return nearest;
-  }
-
-  double getObjectSpeed(const FusedObject& object) {
-    return sqrt(object.vx * object.vx + object.vy * object.vy);
+    return {nearest, found};
   }
 
   double getLaneSpeed(std::uint8_t lane_id) {
-    double speed = parameters_.speed_limit;
-    auto objects = getObjectsInLane(lane_id);
-    if (not objects.empty()) {
-      auto object = getNearestObjectInFront(objects);
-      if (getDistanceToObject(object) <
-          parameters_.vehicle_in_front_threshold) {
-        speed = getObjectSpeed(object);
-      }
+    const auto nearest = getNearestVehicleAhead(lane_id);
+    const auto vehicle = nearest.first;
+    const auto found = nearest.second;
+    if (found and vehicle.distance < parameters_.vehicle_in_front_threshold) {
+      return vehicle.speed;
     }
-    return speed;
+    return parameters_.speed_limit;
   }
 
   void updateLaneSpeeds() {
@@ -110,8 +95,13 @@ class Prediction {
       v.speed = sqrt(fused_object.vx * fused_object.vx +
                      fused_object.vy * fused_object.vy);
       v.lane_id = getLaneIdFromFrenet(v.d, parameters_.lane_width);
+      v.distance = fabs(v.s - telemetry_.car_s);
       v.predicted_s = predictVehiclePositionAtReference(v.s, v.speed);
-      v.predicted_distance = v.predicted_s - getPredictedEgo();
+      v.predicted_distance = fabs(v.predicted_s - getPredictedEgo());
+      v.is_ahead = v.s > telemetry_.car_s;
+      v.is_behind = v.s < telemetry_.car_s;
+      v.is_near = false;
+
       result.push_back(v);
     }
     return result;

@@ -217,7 +217,7 @@ class TrajectoryGenerator {
     double gap_length = parameters_.lane_change_gap_length;
     for (auto vehicle : predictions.vehicles) {
       bool is_in_lane = intended_lane_id == vehicle.lane_id;
-      bool is_in_gap = fabs(vehicle.predicted_distance) < gap_length;
+      bool is_in_gap = vehicle.predicted_distance < gap_length;
       if (is_in_lane and is_in_gap) {
         return false;
       }
