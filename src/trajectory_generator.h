@@ -165,21 +165,27 @@ class TrajectoryGenerator {
                          std::uint8_t intended_lane_id,
                          std::uint8_t endpoint_lane_id) {
     const AnchorReference& ref = anchor_reference_;
+    const auto& intended_lane = predictions.lanes[intended_lane_id];
+    const auto& endpoint_lane = predictions.lanes[endpoint_lane_id];
 
-    // Get speed from object in front
-    bool is_object_ahead = false;
-    bool is_object_behind = false;
-
-    double object_speed{0.0};
-    double delta_speed{0};
-    if (is_object_ahead) {
-      if (is_object_behind) {
-        // cannot slow down agressively!
-        delta_speed = -0.5 * parameters_.deceleration;
+    double delta_speed = 0;
+    bool has_near_vehicle_ahead =
+        endpoint_lane.has_vehicle_ahead and endpoint_lane.vehicle_ahead.is_near;
+    bool has_near_vehicle_behind = endpoint_lane.has_vehicle_behind and
+                                   endpoint_lane.vehicle_behind.is_near;
+    if (has_near_vehicle_ahead) {
+      if (has_near_vehicle_behind) {
+        // keep speed of slower vehicle
+        double vehicle_ahead_speed = endpoint_lane.vehicle_ahead.speed;
+        double vehicle_behind_speed = endpoint_lane.vehicle_behind.speed;
+        double target_speed = fmin(vehicle_ahead_speed, vehicle_behind_speed);
+        double speed_diff = fabs(ego_.speed - target_speed);
+        delta_speed = -1.0 * fmin(speed_diff, parameters_.deceleration);
       } else {
-        // slow down to keep distance
-        delta_speed = -1.0 * fmin(fabs(ego_.speed - object_speed),
-                                  parameters_.deceleration);
+        // slow down as much as needed to match speeds
+        double vehicle_speed = endpoint_lane.vehicle_ahead.speed;
+        double speed_diff = fabs(ego_.speed - vehicle_speed);
+        delta_speed = -1.0 * fmin(speed_diff, parameters_.deceleration);
       }
     } else {
       // keep max velocity possible
