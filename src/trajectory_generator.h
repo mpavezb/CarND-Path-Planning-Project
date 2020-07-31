@@ -171,15 +171,6 @@ class TrajectoryGenerator {
     bool is_object_behind = false;
 
     double object_speed{0.0};
-    // auto objects_in_lane = getObjectsInLane(predictions, endpoint_lane_id);
-    // auto objects_in_front = getObjectsInFront(objects_in_lane, ref.s);
-    // auto objects_near = getObjectsInProximity(objects_in_front, ref.s);
-    // if (!objects_near.empty()) {
-    //   auto object = getNearestObject(objects_near, ref.s);
-    //   object_speed = sqrt(object.vx * object.vx + object.vy * object.vy);
-    //   is_object_ahead = true;
-    // }
-
     double delta_speed{0};
     if (is_object_ahead) {
       if (is_object_behind) {
@@ -214,11 +205,9 @@ class TrajectoryGenerator {
 
   bool isLaneChangePossible(const PredictionData& predictions,
                             std::uint8_t intended_lane_id) {
-    double gap_length = parameters_.lane_change_gap_length;
-    for (auto vehicle : predictions.vehicles) {
-      bool is_in_lane = intended_lane_id == vehicle.lane_id;
-      bool is_in_gap = vehicle.predicted_distance < gap_length;
-      if (is_in_lane and is_in_gap) {
+    const auto& lane = predictions.lanes[intended_lane_id];
+    for (const auto& vehicle : lane.vehicles) {
+      if (vehicle.predicted_distance < parameters_.lane_change_gap_length) {
         return false;
       }
     }

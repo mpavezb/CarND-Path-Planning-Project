@@ -34,7 +34,7 @@ struct Parameters {
   // control
   float desired_speed{49.5F / 2.237F};
   float min_distance_to_front_object{30.0F};
-  float vehicle_in_front_threshold{30.0F};
+  float lane_speed_vehicle_distance{30.0F};
   float lane_change_gap_length{60.0F};
 
   // trajectory generation
@@ -100,9 +100,17 @@ struct Vehicle {
 };
 typedef std::vector<Vehicle> Vehicles;
 
-struct PredictionData {
+struct LanePredictions {
   Vehicles vehicles;
-  std::vector<double> lane_speeds;
+  double speed;
+  bool has_vehicle_ahead;
+  bool has_vehicle_behind;
+  Vehicle vehicle_ahead;
+  Vehicle vehicle_behind;
+};
+
+struct PredictionData {
+  std::vector<LanePredictions> lanes;
 };
 
 struct EgoStatus {

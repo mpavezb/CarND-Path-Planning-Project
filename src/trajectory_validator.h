@@ -81,14 +81,12 @@ class InefficientLaneCostFunction : public CostFunction {
   double getCost(const Trajectory &trajectory,
                  const PredictionData &predictions, const EgoStatus &ego,
                  const Parameters &) override {
-    const auto lane_speeds = predictions.lane_speeds;
-
     int current_speed = trajectory.characteristics.speed;
     int intended_lane = trajectory.characteristics.intended_lane_id;
     int endpoint_lane = trajectory.characteristics.endpoint_lane_id;
 
-    double intended_lane_speed = lane_speeds[intended_lane];
-    double endpoint_lane_speed = lane_speeds[endpoint_lane];
+    double intended_lane_speed = predictions.lanes[intended_lane].speed;
+    double endpoint_lane_speed = predictions.lanes[endpoint_lane].speed;
     double cost =
         2.0 - (intended_lane_speed + endpoint_lane_speed) / current_speed;
 
