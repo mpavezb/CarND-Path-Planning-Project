@@ -20,7 +20,7 @@ typedef std::vector<Point> Path;
 struct Parameters {
   // map
   std::string map_filename{"../data/highway_map.csv"};
-  float max_s = 6945.554;
+  float max_s = 6945.554F;
   float lane_width{4.0F};
   float speed_limit{50.0 / 2.237F};
 
@@ -28,20 +28,21 @@ struct Parameters {
   float time_step_{0.02F};
 
   // target
-  std::uint8_t goal_lane_id{1};  // 0=left, 1=middle, 2=right
+  std::uint8_t goal_lane_id{1U};  // 0=left, 1=middle, 2=right
   float goal_s{max_s};
 
   // control
   float desired_speed{49.5F / 2.237F};
-  float min_distance_to_front_object{30};
-  float vehicle_in_front_threshold = 50;
+  float min_distance_to_front_object{30.0F};
+  float vehicle_in_front_threshold{30.0F};
+  float lane_change_gap_length{60.0F};
 
   // trajectory generation
   int path_size_{50};
   int n_anchors_{5};
   float look_ahead_distance_{50.0F};
-  float acceleration{0.1};
-  float deceleration{0.2};
+  float acceleration{0.1F};
+  float deceleration{0.2F};
 };
 
 struct Map {
@@ -91,15 +92,13 @@ struct Vehicle {
   double speed;
   double lane_id;
   double predicted_s;
+  double predicted_distance;
 };
 typedef std::vector<Vehicle> Vehicles;
 
 struct PredictionData {
   Vehicles vehicles;
   std::vector<double> lane_speeds;
-  std::vector<uint32_t> near_vehicles;
-  std::vector<uint32_t> front_vehicles;
-  std::vector<uint32_t> rear_vehicles;
 };
 
 struct EgoStatus {

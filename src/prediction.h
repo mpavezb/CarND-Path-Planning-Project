@@ -17,11 +17,7 @@ class Prediction {
     telemetry_ = telemetry;
   }
 
-  void step() {
-    predictions_.front_vehicles.clear();
-    predictions_.rear_vehicles.clear();
-    predictions_.vehicles = predictVehicles();
-  }
+  void step() { predictions_.vehicles = predictVehicles(); }
 
   PredictionData getPredictions() { return predictions_; }
 
@@ -97,6 +93,13 @@ class Prediction {
     return predicted;
   }
 
+  double getPredictedEgo() {
+    if (telemetry_.last_path.size() > 1) {
+      return telemetry_.end_path_s;
+    }
+    return telemetry_.car_s;
+  }
+
   Vehicles predictVehicles() {
     Vehicles result;
     for (const auto& fused_object : telemetry_.sensor_fusion) {
@@ -108,12 +111,11 @@ class Prediction {
                      fused_object.vy * fused_object.vy);
       v.lane_id = getLaneIdFromFrenet(v.d, parameters_.lane_width);
       v.predicted_s = predictVehiclePositionAtReference(v.s, v.speed);
+      v.predicted_distance = v.predicted_s - getPredictedEgo();
       result.push_back(v);
     }
     return result;
   }
-
-  void updateNearVehicles() { predictions_.near_vehicles.clear(); }
 
   // bool isObjectInLane(const FusedObject& object, std::uint8_t lane_id) {
   //   double lane_width = parameters_.lane_width;

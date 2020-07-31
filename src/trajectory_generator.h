@@ -217,19 +217,11 @@ class TrajectoryGenerator {
 
   bool isLaneChangePossible(const PredictionData& predictions,
                             std::uint8_t intended_lane_id) {
-    double car_s = ego_.s;
-    if (telemetry_.last_path.size() > 0) {
-      car_s = telemetry_.end_path_s;
-    }
-
-    double gap_half_length = 20.0;
-    bool is_gap_free = true;
-
-    // TODO
-    auto objects = std::vector<Vehicle>();  // getObjectsInLane(predictions,
-                                            // intended_lane_id);
-    for (auto object : objects) {
-      if (fabs(car_s - object.predicted_s) < gap_half_length) {
+    double gap_length = parameters_.lane_change_gap_length;
+    for (auto vehicle : predictions.vehicles) {
+      bool is_in_lane = intended_lane_id == vehicle.lane_id;
+      bool is_in_gap = fabs(vehicle.predicted_distance) < gap_length;
+      if (is_in_lane and is_in_gap) {
         return false;
       }
     }
