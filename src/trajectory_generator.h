@@ -190,27 +190,31 @@ class TrajectoryGenerator {
     const auto& intended_lane = predictions.lanes[intended_lane_id];
     const auto& endpoint_lane = predictions.lanes[endpoint_lane_id];
 
+    // TODO: Need to know when to start stopping to avoid colliding front
+    // vehicle!
     double delta_speed = 0;
     bool has_near_vehicle_ahead =
         endpoint_lane.has_vehicle_ahead and endpoint_lane.vehicle_ahead.is_near;
     bool has_near_vehicle_behind = endpoint_lane.has_vehicle_behind and
                                    endpoint_lane.vehicle_behind.is_near;
     if (has_near_vehicle_ahead) {
+      double target_speed;
       if (has_near_vehicle_behind) {
         // keep speed of slower vehicle
         double vehicle_ahead_speed = endpoint_lane.vehicle_ahead.speed;
         double vehicle_behind_speed = endpoint_lane.vehicle_behind.speed;
-        double target_speed = fmin(vehicle_ahead_speed, vehicle_behind_speed);
-        double speed_diff = fabs(ego_.speed - target_speed);
-        delta_speed = -1.0 * fmin(speed_diff, parameters_.deceleration);
+        target_speed = fmin(vehicle_ahead_speed, vehicle_behind_speed);
       } else {
         // slow down as much as needed to match speeds
-        double vehicle_speed = endpoint_lane.vehicle_ahead.speed;
-        double speed_diff = fabs(ego_.speed - vehicle_speed);
-        delta_speed = -1.0 * fmin(speed_diff, parameters_.deceleration);
+        target_speed = endpoint_lane.vehicle_ahead.speed;
       }
+      double speed_diff = fabs(ego_.speed - target_speed);
+      delta_speed = -1.0 * fmin(speed_diff, parameters_.deceleration);
+
     } else {
-      // keep max velocity possible
+      // TODO: Dont increase too much if there is a vehicle ahead. Keep speed
+      // instead. This will result in a sudden speed increase.
+      // Keep max velocity possible
       delta_speed = parameters_.acceleration;
     }
 
@@ -241,7 +245,12 @@ class TrajectoryGenerator {
                             std::uint8_t intended_lane_id) {
     const auto& lane = predictions.lanes[intended_lane_id];
     for (const auto& vehicle : lane.vehicles) {
-      if (vehicle.predicted_distance < parameters_.lane_change_gap_length) {
+      if (vehicle.is_ahead and vehicle.predicted_distance <
+                                   parameters_.lane_change_gap_ahead_length) {
+        return false;
+      }
+      if (vehicle.is_behind and vehicle.predicted_distance <
+                                    parameters_.lane_change_gap_behind_length) {
         return false;
       }
     }

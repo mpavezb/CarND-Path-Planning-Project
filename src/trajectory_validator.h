@@ -39,8 +39,8 @@ class SpeedCostFunction : public CostFunction {
   }
 
  private:
-  double kStopCost = 0.8;
-  double kSpeedBuffer{2.0 / 2.237};
+  double kStopCost = 0.9;
+  double kSpeedBuffer{1.0 / 2.237};
   double kSpeedLimit{50.0 / 2.237};
   double kBestSpeed{kSpeedLimit - kSpeedBuffer};
   double kFunctionWeight{1.0};

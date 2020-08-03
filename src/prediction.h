@@ -63,7 +63,7 @@ class Prediction {
     v.predicted_distance = fabs(v.predicted_s - getPredictedEgo());
     v.is_ahead = v.s > telemetry_.car_s;
     v.is_behind = v.s < telemetry_.car_s;
-    v.is_near = v.predicted_distance < parameters_.min_distance_to_front_object;
+    v.is_near = v.predicted_distance < parameters_.min_distance_to_vehicle;
     return v;
   }
 
