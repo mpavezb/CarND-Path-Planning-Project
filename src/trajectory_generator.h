@@ -239,6 +239,7 @@ class TrajectoryGenerator {
     Trajectory trajectory = interpolateMissingPoints(ego_anchors, speed);
     trajectory.characteristics.endpoint_lane_id = endpoint_lane_id;
     trajectory.characteristics.intended_lane_id = intended_lane_id;
+    trajectory.characteristics.is_valid = true;
     return trajectory;
   }
 

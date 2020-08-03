@@ -72,26 +72,24 @@ class StateMachine : public tinyfsm::Fsm<StateMachine> {
     auto validator = event.functions.validator;
 
     std::vector<Trajectory> candidates;
-    for (auto action : getValidActions()) {
+    for (const auto &action : getValidActions()) {
       auto trajectory =
           generator->getTrajectoryForAction(action, event.input.predictions);
       candidates.push_back(trajectory);
-      // std::cout
-      //     << "[StateMachine]: - Generated candidate trajectory for action: "
-      //     << static_cast<int>(action)
-      //     << " with # points: " << trajectory.x.size() << std::endl;
     }
 
     std::set<Trajectory> valid_trajectories;
-    for (auto &&trajectory : candidates) {
+    for (auto &trajectory : candidates) {
       if (validator->isTrajectoryValid(trajectory)) {
         trajectory.characteristics.cost =
             validator->getTrajectoryCost(trajectory, event.input.predictions);
-        // std::cout << "[StateMachine]: - Trajectory cost for action '"
-        //           << trajectory.characteristics.action
-        //           << "' is: " << trajectory.characteristics.cost <<
-        //           std::endl;
         valid_trajectories.insert(trajectory);
+        std::cout << "Trajectory '" << trajectory.characteristics.action
+                  << "' has cost: " << trajectory.characteristics.cost
+                  << std::endl;
+      } else {
+        std::cout << "Trajectory '" << trajectory.characteristics.action
+                  << "' is not valid" << std::endl;
       }
     }
     if (valid_trajectories.empty()) {
@@ -102,9 +100,6 @@ class StateMachine : public tinyfsm::Fsm<StateMachine> {
     }
     auto best_trajectory = *valid_trajectories.begin();
     auto best_action = best_trajectory.characteristics.action;
-    // std::cout << "[StateMachine]: Using trajectory for action: "
-    //           << static_cast<int>(best_action)
-    //           << " with # points: " << best_trajectory.x.size() << std::endl;
     event.output->selected_trajectory = best_trajectory;
     executeTransition(best_action);
   };

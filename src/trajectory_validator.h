@@ -105,7 +105,7 @@ class TrajectoryValidator {
     cost_functions.emplace_back(new InefficientLaneCostFunction());
   }
 
-  bool isActionLaneInRoad(const Trajectory &trajectory) {
+  bool isActionLaneValid(const Trajectory &trajectory) {
     if (ego_.lane_id == 0) {
       if (trajectory.characteristics.action ==
               TrajectoryAction::kPrepareChangeLaneLeft ||
@@ -126,14 +126,14 @@ class TrajectoryValidator {
   bool isTrajectoryValid(const Trajectory &trajectory) {
     bool is_valid = trajectory.characteristics.is_valid;
     // TODO: invalid trajectories may generate errors
-    is_valid = is_valid and isActionLaneInRoad(trajectory);
+    is_valid = is_valid and isActionLaneValid(trajectory);
     return is_valid;
   }
 
   double getTrajectoryCost(const Trajectory &trajectory,
                            const PredictionData &predictions) {
     double cost = 0;
-    for (auto &cost_function : cost_functions) {
+    for (const auto &cost_function : cost_functions) {
       cost +=
           cost_function->getCost(trajectory, predictions, ego_, parameters_);
     }

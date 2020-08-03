@@ -54,6 +54,8 @@ class MotionPlanning {
     StateMachine::dispatch(sm_event_);
     selected_trajectory_ = sm_event_.output->selected_trajectory;
     ego_.speed = selected_trajectory_.characteristics.speed;
+    std::cout << "State is: " << selected_trajectory_.characteristics.action
+              << std::endl;
   }
 
   Trajectory getTrajectory() { return selected_trajectory_; }

@@ -25,13 +25,34 @@ enum class TrajectoryAction : std::uint8_t {
   kPrepareChangeLaneRight
 };
 
+std::ostream& operator<<(std::ostream& os, const TrajectoryAction& action) {
+  switch (action) {
+    case TrajectoryAction::kKeepLane:
+      os << "kKeepLane";
+      break;
+    case TrajectoryAction::kChangeLaneLeft:
+      os << "kChangeLaneLeft";
+      break;
+    case TrajectoryAction::kChangeLaneRight:
+      os << "kChangeLaneRight";
+      break;
+    case TrajectoryAction::kPrepareChangeLaneLeft:
+      os << "kPrepareChangeLaneLeft";
+      break;
+    case TrajectoryAction::kPrepareChangeLaneRight:
+      os << "kPrepareChangeLaneRight";
+      break;
+  }
+  return os;
+}
+
 struct TrajectoryCharacteristics {
   TrajectoryAction action;
   double speed;
   double cost;
   std::uint8_t intended_lane_id;  // expected lane id after successful maneuver.
   std::uint8_t endpoint_lane_id;  // Lane id for this trajectory's endpoint.
-  bool is_valid{true};
+  bool is_valid{false};
 };
 
 struct Trajectory {
