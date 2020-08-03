@@ -114,7 +114,7 @@ struct PredictionData {
 };
 
 struct EgoStatus {
-  std::uint8_t lane_id{1};  // 0=left, 1=middle, 2=right
+  std::uint8_t lane_id{1U};  // 0=left, 1=middle, 2=right
   float s{0.0F};
   float speed{0.0F};
 };

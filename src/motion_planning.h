@@ -33,8 +33,13 @@ class MotionPlanning {
 
   void setTelemetry(const TelemetryPacket& telemetry) {
     generator_->setTelemetry(telemetry);
+    // using s, d from telemetry is not that good!
     ego_.s = telemetry.car_s;
-    ego_.lane_id = getLaneIdFromFrenet(ego_.s, parameters_.lane_width);
+    ego_.lane_id = getLaneIdFromFrenet(telemetry.car_d, parameters_.lane_width);
+    // std::cout << "Car is on lane_id: " << static_cast<int>(ego_.lane_id)
+    //           << " (target id is: "
+    //           << static_cast<int>(parameters_.goal_lane_id) << ")" <<
+    //           std::endl;
   }
 
   void setPredictions(const PredictionData& predictions) {
