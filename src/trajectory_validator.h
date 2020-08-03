@@ -69,7 +69,7 @@ class GoalDistanceCostFunction : public CostFunction {
   }
 
  private:
-  double kFunctionWeight{4.0};
+  double kFunctionWeight{1000.0};
 };
 
 /**
@@ -80,8 +80,8 @@ class InefficientLaneCostFunction : public CostFunction {
  public:
   double getCost(const Trajectory &trajectory,
                  const PredictionData &predictions, const EgoStatus &ego,
-                 const Parameters &) override {
-    int current_speed = trajectory.characteristics.speed;
+                 const Parameters &parameters) override {
+    int current_speed = parameters.desired_speed;
     int intended_lane = trajectory.characteristics.intended_lane_id;
     int endpoint_lane = trajectory.characteristics.endpoint_lane_id;
 
@@ -89,12 +89,19 @@ class InefficientLaneCostFunction : public CostFunction {
     double endpoint_lane_speed = predictions.lanes[endpoint_lane].speed;
     double cost =
         2.0 - (intended_lane_speed + endpoint_lane_speed) / current_speed;
+    cost = fmax(0.0, cost * kFunctionWeight);
 
-    return cost * kFunctionWeight;
+    // std::cout << trajectory.characteristics.action
+    //           << ", ispeed: " << intended_lane_speed
+    //           << ", espeed: " << endpoint_lane_speed
+    //           << ", cspeed: " << current_speed << ", c: " << cost <<
+    //           std::endl;
+
+    return cost;
   }
 
  private:
-  double kFunctionWeight{2.0};
+  double kFunctionWeight{1.5};
 };
 
 class TrajectoryValidator {
