@@ -18,6 +18,11 @@ class Prediction {
   }
 
   void step() {
+    predictions_.lanes.resize(3);
+    // TODO: Drop outdated vehicles and update others.
+    predictions_.lanes[0].vehicles.clear();
+    predictions_.lanes[1].vehicles.clear();
+    predictions_.lanes[2].vehicles.clear();
     predictVehicles();
     computeFieldsForLane(0U);
     computeFieldsForLane(1U);
@@ -63,7 +68,6 @@ class Prediction {
   }
 
   void predictVehicles() {
-    predictions_.lanes.resize(3);
     for (const auto& object : telemetry_.sensor_fusion) {
       Vehicle v = predictVehicle(object);
       auto& lane = predictions_.lanes[v.lane_id];
@@ -111,8 +115,8 @@ class Prediction {
 
     // Vehicle Ahead
     const auto nearest_behind = getNearestVehicleBehind(lane_id);
-    lane.has_vehicle_ahead = nearest_behind.first;
-    lane.vehicle_ahead = nearest_behind.second;
+    lane.has_vehicle_behind = nearest_behind.first;
+    lane.vehicle_behind = nearest_behind.second;
 
     // lane speed
     if (lane.has_vehicle_ahead and
