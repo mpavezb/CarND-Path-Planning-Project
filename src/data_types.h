@@ -48,7 +48,8 @@ struct Parameters {
   // trajectory generation
   int path_size_{50};
   int n_anchors_{5};
-  float look_ahead_distance_{50.0F};
+  float look_ahead_distance_{90.0F};
+  float trajectory_length_{30.0F};
   float acceleration{0.1F};
   float deceleration{0.2F};
 };

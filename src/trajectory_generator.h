@@ -164,7 +164,7 @@ class TrajectoryGenerator {
     tk::spline gen;
     gen.set_points(getPathX(ego_anchors), getPathY(ego_anchors));
 
-    double target_x = parameters_.look_ahead_distance_;
+    double target_x = parameters_.trajectory_length_;
     double target_y = gen(target_x);
     double target_dist = distance(0, 0, target_x, target_y);
     double N = target_dist / (speed * parameters_.time_step_);
