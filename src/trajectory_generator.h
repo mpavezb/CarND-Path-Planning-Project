@@ -33,8 +33,8 @@ class TrajectoryGenerator {
    */
   void updateAnchorReference() {
     AnchorReference& ref = anchor_reference_;
-    auto prev_path_size = telemetry_.last_path.size();
-    if (prev_path_size < 2) {
+    auto last_path_size = telemetry_.last_path.size();
+    if (last_path_size < 2) {
       // based only on car
       ref.yaw = telemetry_.car_yaw;
       ref.x2 = telemetry_.car_x;
@@ -43,15 +43,18 @@ class TrajectoryGenerator {
       ref.d = telemetry_.car_d;
       ref.x1 = ref.x2 - cos(ref.yaw);
       ref.y1 = ref.y2 - sin(ref.yaw);
+      // std::cout << "Car Based AnchorReference: " << ref << std::endl;
     } else {
       // based only on previous endpoints
-      ref.x1 = telemetry_.last_path[prev_path_size - 2].x;
-      ref.y1 = telemetry_.last_path[prev_path_size - 2].y;
-      ref.x2 = telemetry_.last_path[prev_path_size - 1].x;
-      ref.y2 = telemetry_.last_path[prev_path_size - 1].y;
+      // TODO: This is problematic if last path was generated with low speed
+      ref.x1 = telemetry_.last_path[last_path_size - 2].x;
+      ref.y1 = telemetry_.last_path[last_path_size - 2].y;
+      ref.x2 = telemetry_.last_path[last_path_size - 1].x;
+      ref.y2 = telemetry_.last_path[last_path_size - 1].y;
       ref.yaw = atan2(ref.y2 - ref.y1, ref.x2 - ref.x1);
       ref.s = telemetry_.end_path_s;
       ref.d = telemetry_.car_d;
+      // std::cout << "Last Path Based AnchorReference: " << ref << std::endl;
     }
   }
 
@@ -131,6 +134,19 @@ class TrajectoryGenerator {
     return result;
   }
 
+  bool areAnchorsValid(const SplineAnchors& ego_anchors) {
+    for (int i = 1; i < ego_anchors.size(); ++i) {
+      const auto p1 = ego_anchors[i - 1];
+      const auto p2 = ego_anchors[i];
+      if (p1.x >= p2.x) {
+        std::cerr << "Got invalid anchors:" << std::endl;
+        printPath(ego_anchors, "anchors");
+        return false;
+      }
+    }
+    return true;
+  }
+
   /**
    * Generate interpolation points between anchors.
    * Points are evenly spaced in x axis, so that desired speed is kept.
@@ -140,6 +156,10 @@ class TrajectoryGenerator {
     Trajectory result;
     result.path = telemetry_.last_path;
     int missing_points = parameters_.path_size_ - result.path.size();
+
+    if (not areAnchorsValid(ego_anchors)) {
+      return generateInvalidTrajectory();
+    }
 
     tk::spline gen;
     gen.set_points(getPathX(ego_anchors), getPathY(ego_anchors));
@@ -158,6 +178,8 @@ class TrajectoryGenerator {
       result.path.push_back({map_point.x, map_point.y});
     }
     result.characteristics.speed = speed;
+    result.characteristics.is_valid = true;
+
     return result;
   }
 
@@ -192,7 +214,13 @@ class TrajectoryGenerator {
       delta_speed = parameters_.acceleration;
     }
 
-    return fmax(0, fmin(ego_.speed + delta_speed, parameters_.desired_speed));
+    // TODO: this helps avoiding invalid anchor generation
+    // if speed is near zero, then last trajectory points
+    // will be too near for anchors to be valid.
+    double minimum_speed = 0.1;
+
+    return fmax(minimum_speed,
+                fmin(ego_.speed + delta_speed, parameters_.desired_speed));
 
     // PrepareFor...
     // double speed_actual = getSpeedForecast(predictions, endpoint_lane_id);
@@ -239,7 +267,6 @@ class TrajectoryGenerator {
     Trajectory trajectory = interpolateMissingPoints(ego_anchors, speed);
     trajectory.characteristics.endpoint_lane_id = endpoint_lane_id;
     trajectory.characteristics.intended_lane_id = intended_lane_id;
-    trajectory.characteristics.is_valid = true;
     return trajectory;
   }
 
