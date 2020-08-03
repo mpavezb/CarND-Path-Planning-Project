@@ -14,7 +14,14 @@ namespace udacity {
 struct Point {
   double x;
   double y;
+  Point() : x(.0), y(.0) {}
+  Point(double x, double y) : x(x), y(y) {}
 };
+
+std::ostream& operator<<(std::ostream& os, const Point& p) {
+  return os << "(" << p.x << "," << p.y << ")";
+}
+
 typedef std::vector<Point> Path;
 
 struct Parameters {

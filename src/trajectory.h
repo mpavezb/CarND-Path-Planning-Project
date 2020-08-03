@@ -15,6 +15,11 @@ struct AnchorReference {
   double yaw;
 };
 
+std::ostream& operator<<(std::ostream& os, const AnchorReference& r) {
+  return os << "(s,d): (" << r.s << "," << r.d << "), p1: " << Point(r.x1, r.y1)
+            << ", p2: " << Point(r.x2, r.y2) << ", yaw: " << r.yaw;
+}
+
 typedef Path SplineAnchors;
 
 enum class TrajectoryAction : std::uint8_t {
