@@ -41,7 +41,7 @@ struct Parameters {
   // control
   float desired_speed{49.5F / 2.237F};
   float min_distance_to_vehicle{30.0F};
-  float lane_speed_vehicle_distance{100.0F};
+  float lane_speed_vehicle_distance{50.0F};
   float lane_change_gap_ahead_length{30.0F};
   float lane_change_gap_behind_length{10.0F};
 
