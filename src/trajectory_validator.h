@@ -137,12 +137,11 @@ class TrajectoryValidator {
     return is_valid;
   }
 
-  double getTrajectoryCost(const Trajectory &trajectory,
-                           const PredictionData &predictions) {
+  double getTrajectoryCost(const Trajectory &trajectory) {
     double cost = 0;
     for (const auto &cost_function : cost_functions) {
       cost +=
-          cost_function->getCost(trajectory, predictions, ego_, parameters_);
+          cost_function->getCost(trajectory, predictions_, ego_, parameters_);
     }
     return cost;
   }

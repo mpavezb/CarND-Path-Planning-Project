@@ -13,21 +13,15 @@
 namespace udacity {
 
 // tinyfsm Event
-// maybe: PredictionUpdateEvent;
-// maybe: StepEvent;
 struct UpdateEvent : public tinyfsm::Event {
   struct Functions {
     std::shared_ptr<TrajectoryGenerator> generator;
     std::shared_ptr<TrajectoryValidator> validator;
   };
-  struct Input {
-    PredictionData predictions;
-  };
   struct Output {
     Trajectory selected_trajectory;
   };
   Functions functions;
-  Input input;
   std::shared_ptr<Output> output;
 };
 
@@ -73,8 +67,7 @@ class StateMachine : public tinyfsm::Fsm<StateMachine> {
 
     std::vector<Trajectory> candidates;
     for (const auto &action : getValidActions()) {
-      auto trajectory =
-          generator->getTrajectoryForAction(action, event.input.predictions);
+      auto trajectory = generator->getTrajectoryForAction(action);
       candidates.push_back(trajectory);
     }
 
@@ -82,7 +75,7 @@ class StateMachine : public tinyfsm::Fsm<StateMachine> {
     for (auto &trajectory : candidates) {
       if (validator->isTrajectoryValid(trajectory)) {
         trajectory.characteristics.cost =
-            validator->getTrajectoryCost(trajectory, event.input.predictions);
+            validator->getTrajectoryCost(trajectory);
         valid_trajectories.insert(trajectory);
         std::cout << "Trajectory '" << trajectory.characteristics.action
                   << "' has cost: " << trajectory.characteristics.cost

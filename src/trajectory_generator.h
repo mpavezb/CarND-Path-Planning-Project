@@ -23,7 +23,12 @@ class TrajectoryGenerator {
   void setTelemetry(const TelemetryPacket& telemetry) {
     telemetry_ = telemetry;
   }
+
   void setEgoStatus(const EgoStatus& ego) { ego_ = ego; }
+
+  void setPredictions(const PredictionData& predictions) {
+    predictions_ = predictions;
+  }
 
   /**
    * Anchors are based on the previous path's endpoint whenever possible.
@@ -60,24 +65,23 @@ class TrajectoryGenerator {
 
   void step() { updateAnchorReference(); }
 
-  Trajectory getTrajectoryForAction(TrajectoryAction action,
-                                    const PredictionData& predictions) {
+  Trajectory getTrajectoryForAction(TrajectoryAction action) {
     Trajectory result;
     switch (action) {
       case TrajectoryAction::kKeepLane:
-        result = generateKeepLaneTrajectory(predictions);
+        result = generateKeepLaneTrajectory();
         break;
       case TrajectoryAction::kPrepareChangeLaneLeft:
-        result = generatePrepareLaneChangeLeftTrajectory(predictions);
+        result = generatePrepareLaneChangeLeftTrajectory();
         break;
       case TrajectoryAction::kChangeLaneLeft:
-        result = generateLaneChangeLeftTrajectory(predictions);
+        result = generateLaneChangeLeftTrajectory();
         break;
       case TrajectoryAction::kPrepareChangeLaneRight:
-        result = generatePrepareLaneChangeRightTrajectory(predictions);
+        result = generatePrepareLaneChangeRightTrajectory();
         break;
       case TrajectoryAction::kChangeLaneRight:
-        result = generateLaneChangeRightTrajectory(predictions);
+        result = generateLaneChangeRightTrajectory();
         break;
     }
     result.characteristics.action = action;
@@ -183,12 +187,11 @@ class TrajectoryGenerator {
     return result;
   }
 
-  double getOptimalSpeed(const PredictionData& predictions,
-                         std::uint8_t intended_lane_id,
+  double getOptimalSpeed(std::uint8_t intended_lane_id,
                          std::uint8_t endpoint_lane_id) {
     const AnchorReference& ref = anchor_reference_;
-    const auto& intended_lane = predictions.lanes[intended_lane_id];
-    const auto& endpoint_lane = predictions.lanes[endpoint_lane_id];
+    const auto& intended_lane = predictions_.lanes[intended_lane_id];
+    const auto& endpoint_lane = predictions_.lanes[endpoint_lane_id];
 
     // TODO: Need to know when to start stopping to avoid colliding front
     // vehicle!
@@ -241,9 +244,8 @@ class TrajectoryGenerator {
     // }
   }
 
-  bool isLaneChangePossible(const PredictionData& predictions,
-                            std::uint8_t intended_lane_id) {
-    const auto& lane = predictions.lanes[intended_lane_id];
+  bool isLaneChangePossible(std::uint8_t intended_lane_id) {
+    const auto& lane = predictions_.lanes[intended_lane_id];
     for (const auto& vehicle : lane.vehicles) {
       if (vehicle.is_ahead and vehicle.predicted_distance <
                                    parameters_.lane_change_gap_ahead_length) {
@@ -285,58 +287,49 @@ class TrajectoryGenerator {
     return invalid_trajectory;
   }
 
-  Trajectory generateTrajectory(const PredictionData& predictions,
-                                std::uint8_t intended_lane_id,
+  Trajectory generateTrajectory(std::uint8_t intended_lane_id,
                                 std::uint8_t endpoint_lane_id) {
-    double speed =
-        getOptimalSpeed(predictions, intended_lane_id, endpoint_lane_id);
+    double speed = getOptimalSpeed(intended_lane_id, endpoint_lane_id);
     return generateTrajectoryFromSpline(intended_lane_id, endpoint_lane_id,
                                         speed);
   }
 
-  Trajectory generateKeepLaneTrajectory(const PredictionData& predictions) {
+  Trajectory generateKeepLaneTrajectory() {
     std::uint8_t intended_lane_id = ego_.lane_id;
     std::uint8_t endpoint_lane_id = ego_.lane_id;
-    return generateTrajectory(predictions, intended_lane_id, endpoint_lane_id);
+    return generateTrajectory(intended_lane_id, endpoint_lane_id);
   }
 
-  Trajectory generatePrepareLaneChangeLeftTrajectory(
-      const PredictionData& predictions) {
+  Trajectory generatePrepareLaneChangeLeftTrajectory() {
     std::uint8_t intended_lane_id = fmax(0, ego_.lane_id - 1);
     std::uint8_t endpoint_lane_id = ego_.lane_id;
-    return generateTrajectory(predictions, intended_lane_id, endpoint_lane_id);
+    return generateTrajectory(intended_lane_id, endpoint_lane_id);
   }
 
-  Trajectory generatePrepareLaneChangeRightTrajectory(
-      const PredictionData& predictions) {
+  Trajectory generatePrepareLaneChangeRightTrajectory() {
     std::uint8_t intended_lane_id = fmin(2, ego_.lane_id + 1);
     std::uint8_t endpoint_lane_id = ego_.lane_id;
-    return generateTrajectory(predictions, intended_lane_id, endpoint_lane_id);
+    return generateTrajectory(intended_lane_id, endpoint_lane_id);
   }
 
-  Trajectory generateLaneChangeTrajectory(const PredictionData& predictions,
-                                          std::uint8_t intended_lane_id,
+  Trajectory generateLaneChangeTrajectory(std::uint8_t intended_lane_id,
                                           std::uint8_t endpoint_lane_id) {
-    if (!isLaneChangePossible(predictions, intended_lane_id)) {
+    if (!isLaneChangePossible(intended_lane_id)) {
       return generateInvalidTrajectory();
     }
-    return generateTrajectory(predictions, intended_lane_id, endpoint_lane_id);
+    return generateTrajectory(intended_lane_id, endpoint_lane_id);
   }
 
-  Trajectory generateLaneChangeLeftTrajectory(
-      const PredictionData& predictions) {
+  Trajectory generateLaneChangeLeftTrajectory() {
     std::uint8_t intended_lane_id = fmax(0, ego_.lane_id - 1);
     std::uint8_t endpoint_lane_id = intended_lane_id;
-    return generateLaneChangeTrajectory(predictions, intended_lane_id,
-                                        endpoint_lane_id);
+    return generateLaneChangeTrajectory(intended_lane_id, endpoint_lane_id);
   }
 
-  Trajectory generateLaneChangeRightTrajectory(
-      const PredictionData& predictions) {
+  Trajectory generateLaneChangeRightTrajectory() {
     std::uint8_t intended_lane_id = fmin(2, ego_.lane_id + 1);
     std::uint8_t endpoint_lane_id = intended_lane_id;
-    return generateLaneChangeTrajectory(predictions, intended_lane_id,
-                                        endpoint_lane_id);
+    return generateLaneChangeTrajectory(intended_lane_id, endpoint_lane_id);
   }
 
  private:
@@ -345,6 +338,7 @@ class TrajectoryGenerator {
   Parameters parameters_;
   TelemetryPacket telemetry_;
   EgoStatus ego_;
+  PredictionData predictions_;
   AnchorReference anchor_reference_;
 };
 

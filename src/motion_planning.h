@@ -15,12 +15,10 @@ namespace udacity {
 class MotionPlanning {
  public:
   MotionPlanning(std::shared_ptr<Map> map, const Parameters& parameters)
-      : map_(map), parameters_(parameters) {
-    generator_ = std::shared_ptr<TrajectoryGenerator>(
-        new TrajectoryGenerator(map, parameters));
-    validator_ = std::shared_ptr<TrajectoryValidator>(
-        new TrajectoryValidator(parameters));
-
+      : map_(map),
+        parameters_(parameters),
+        generator_{new TrajectoryGenerator(map, parameters)},
+        validator_{new TrajectoryValidator(parameters)} {
     // Not good, but seems like the only way to share data with the tiny FSM
     // is through the payload.
     sm_event_.functions.generator = generator_;
@@ -43,7 +41,7 @@ class MotionPlanning {
   }
 
   void setPredictions(const PredictionData& predictions) {
-    sm_event_.input.predictions = predictions;
+    generator_->setPredictions(predictions);
     validator_->setPredictionData(predictions);
   }
 
