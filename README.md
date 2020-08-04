@@ -190,6 +190,7 @@ The source code is located in the `src/` directory:
 
 ## Future Improvements
 
+- Prefer changing to empty lane instead of lane with cars ahead.
 - Add debouncing for transitions KeepLane <-> PrepareLaneChangeX, to avoid quick state changes.
 - Run behavior planning, and prediction/trajectory-generation modules at different frequencies.
 - Implement predictions for other vehicles using approaches from the lessons.
