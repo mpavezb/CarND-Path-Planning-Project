@@ -1,4 +1,6 @@
-# CarND-Path-Planning-Project : Self-Driving Car Engineer Nanodegree Program
+# CarND-Path-Planning-Project
+
+**Self-Driving Car Engineer Nanodegree Program**
 
 ## Overview
 
@@ -8,16 +10,18 @@ In this project the goal is to safely navigate around a virtual highway with oth
 
 ### Sample Results
 
+Images below show examples on the planner being able to drive longer than expected to meet the specifications, and the car working on lane change maneuvers.
+
 ![Sample Endurance](sample-endurance.png)
 
 ![Sample Overtake](sample-overtake.png)
 
-## Contents
+### Contents
 
 - [Execution](#execution)
-- [The Data](#data)
-- [Design](#design)
-- [Improvements](#improvements)
+- [Input Data](#input-data)
+- [Model Documentation](#model-documentation)
+- [Future Improvements](#future-improvements)
 
 ## Execution
 
@@ -72,8 +76,7 @@ sudo chmod u+x {simulator_file_name}
 4. Run it: `./path_planning`.
 ```
 
-## Data
-
+## Input Data
 ### The Map
 
 Is provided in `data/highway_map.txt` as a collection of waypoints. Each `[x,y,s,dx,dy]` values. `x` and `y` are the waypoint's map coordinate position, the `s` value is the distance along the road to get to that waypoint in meters, the `dx` and `dy` values define the unit normal vector pointing outward of the highway loop.
@@ -106,12 +109,86 @@ The simulator provides telemetry information in json format through a web socket
 ["sensor_fusion"] A 2d vector of cars and then that car's [car's unique ID, car's x position in map coordinates, car's y position in map coordinates, car's x velocity in m/s, car's y velocity in m/s, car's s position in frenet coordinates, car's d position in frenet coordinates. 
 ```
 
-## Design
+## Model Documentation
 
-TODO
+### Overview
+
+### Input Data
+
+Telemetry data is provided through a websocket with the simulator, and comes in JSON format. Map specifications are provided in a CSV file. Deserialization of both messages is implemented in `serialization.h`.
+
+### Prediction
+
+Current implementation does not consider vehicle tracking and prediction. Current vehicle's frenet coordinate `s` is extrapolated according to the new points added to the trajectory.
+
+This is a shortcomming of the implementation. Scenarios like lane change are not predicted, and could lead to collisions, if Ego were to near to the Vehicle.
+
+Each vehicle provided by the current telemetry is processed to obtain the following information:
+- ID
+- Frenet coordinates: `d`, `s`.
+- Speed.
+- Lane ID.
+- Distance to ego.
+- Predicted `s`.
+- Predicted distance to ego.
+- Checks: *is vehicle ahead*, *is vehicle behind*, and *is vehicle near*.
+
+Also, for each lane, also the following is computed:
+- Nearest vehicle ahead.
+- Nearest vehicle behind.
+- Lane speed.
+
+### Trajectory Generation
+
+Following the advices from the lectures, the trajectory generation is based on splines, in order to help ensure the continuity of the points. 
+
+At each step, a set of anchors is computed based on the last 2 points of the last trajectory. In cases were the previous trajectory is empty, then the current car position is used as anchor. See `TrajectoryGenerator::updateAnchorReference()`.
+
+Before generating the spline, all anchors are transformed to the ego frame, helping to ensure the data in x axis is as horizontal as possible. The generated spline is then used to interpolate trajectory points as needed. The points are spaced as needed, in order to accomodate for the desired speed.
+
+The `TrajectoryGenerator` class provides generation of different trajectory actions in the `getTrajectoryForAction()` method. Depending on the case, the anchors can be created on the current lane (keep lane, prepare lane change), or in a different lane (lane change). The lane change is only executed if there is a valid gap in the next lane where the car can fit (See: `TrajectoryGenerator::isLaneChangePossible).
+
+The trajectory speed is controlled based on the desired speed (49.5 mph), the speed limit (50 mph), and the speed of the objects around. The velocity is increased whenever possible, and decreased if there is an object in front. If the car is preparing for a lane change, then the speed is also adjusted to match the velocity of the slowest between both lanes. See `TrajectoryGenerator::getOptimalSpeed()`.
+
+### State Machine
+
+The state machine considers 5 states, as adviced in the lessons, were the only way to execute a lane change, is to prepare for it beforehand:
+- KeepLaneState
+- PrepareLaneChangeLeftState
+- PrepareLaneChangeRightState
+- LaneChangeLeftState
+- LaneChangeRightState
+
+The states are implemented in `src/state_machine.h`, and trajectory evaluation is implemented in `trajectory_validator.h`.
+
+During each step, only trajectories for next possible states are generated. These are further evaluated to check for validity and cost. The transition is executed based on the trajectory with the lowest cost, if any. The transition logic is implemented in `StateMachine::react()`.
+
+At the moment, only one validation is implemented: `TrajectoryValidator::isActionLaneValid()`, which negates lane changes outside the road. 
+
+The same cost functions studied in the lessons were implemented: `SpeedCostFunction`, `GoalDistanceCostFunction`, and `InefficientLaneCostFunction`. 
 
 
-## Improvements
+### Output Data
+
+The planner (see `motion_planning.h`) triggers the state machine update on each step. The selected trajectory is based on the final state. This is converted back to json and forwarded to the simulator. See also: `MotionPlanning::step()`. 
+
+
+### Source files
+
+The source code is located in the `src/` directory:
+- `third_party/`: Third party code: json, spline and tinyfsm libraries.
+- `data_types.h` and `trajectory.h`: Declare all data types used in the project.
+- `helpers.h`: Helper functions.
+- `main.cpp`: Entry point. Receives telemetry, triggers motion planning, sends trajectories.
+- `motion_planning.h`: Triggers the state machine and provides selected trajectories.
+- `prediction.h`: Vehicle prediction module.
+- `serialization.h`: Conversion from json/csv to project data types.
+- `state_machine.h`: Behavior planning state machine.
+- `trajectory_generator.h`: Spline based trajectory generation.
+- `trajectory_validator.h`: Trajectory validation and cost computation.
+
+
+## Future Improvements
 
 - Add debouncing for transitions KeepLane <-> PrepareLaneChangeX, to avoid quick state changes.
 - Run behavior planning, and prediction/trajectory-generation modules at different frequencies.

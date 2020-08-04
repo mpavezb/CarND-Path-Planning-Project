@@ -31,14 +31,14 @@ struct UpdateEvent : public tinyfsm::Event {
   std::shared_ptr<Output> output;
 };
 
-// tinysfm States
+// tinyfsm States
 class KeepLaneState;
 class PrepareLaneChangeLeftState;
 class PrepareLaneChangeRightState;
 class LaneChangeLeftState;
 class LaneChangeRightState;
 
-// tinysfm State Machine
+// tinyfsm State Machine
 class StateMachine : public tinyfsm::Fsm<StateMachine> {
  public:
   void react(tinyfsm::Event const &) {}
