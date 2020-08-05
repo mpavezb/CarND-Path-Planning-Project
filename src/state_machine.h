@@ -38,7 +38,15 @@ class StateMachine : public tinyfsm::Fsm<StateMachine> {
   void react(tinyfsm::Event const &) {}
 
   virtual std::vector<TrajectoryAction> getValidActions() = 0;
-  virtual bool isActionActive(TrajectoryAction) = 0;
+  virtual TrajectoryAction getAction() = 0;
+
+  bool isActionActive(TrajectoryAction action) { return action == getAction(); }
+
+  void updateDebounceTimer() {
+    debounce_timer_ = fmin(debounce_limit_steps_, debounce_timer_ + 1);
+  }
+
+  bool isDebounceTimeout() { return debounce_timer_ == debounce_limit_steps_; }
 
   void executeTransition(TrajectoryAction action) {
     if (isActionActive(action)) return;
@@ -91,78 +99,67 @@ class StateMachine : public tinyfsm::Fsm<StateMachine> {
           << std::endl;
       return;
     }
+    updateDebounceTimer();
+    if (not isDebounceTimeout()) {
+      event.output->selected_trajectory =
+          generator->getTrajectoryForAction(getAction());
+      return;
+    }
     auto best_trajectory = *valid_trajectories.begin();
     auto best_action = best_trajectory.characteristics.action;
     event.output->selected_trajectory = best_trajectory;
     executeTransition(best_action);
   };
-  virtual void entry(void) {}
+  virtual void entry(void) { debounce_timer_ = 0; }
   virtual void exit(void) {}
+
+ private:
+  const std::uint8_t debounce_limit_steps_{10U};
+  std::uint8_t debounce_timer_{0};
 };
 
 class KeepLaneState : public StateMachine {
-  bool isActionActive(TrajectoryAction action) override {
-    return action == TrajectoryAction::kKeepLane;
-  }
+  TrajectoryAction getAction() override { return TrajectoryAction::kKeepLane; }
   std::vector<TrajectoryAction> getValidActions() override {
     return {TrajectoryAction::kKeepLane,
             TrajectoryAction::kPrepareChangeLaneLeft,
             TrajectoryAction::kPrepareChangeLaneRight};
   }
-  void entry(void) override {
-    std::cout << "[StateMachine]: Switched to: KeepLaneState." << std::endl;
-  }
 };
 class PrepareLaneChangeLeftState : public StateMachine {
-  bool isActionActive(TrajectoryAction action) override {
-    return action == TrajectoryAction::kPrepareChangeLaneLeft;
+  TrajectoryAction getAction() override {
+    return TrajectoryAction::kPrepareChangeLaneLeft;
   }
   std::vector<TrajectoryAction> getValidActions() override {
     return {TrajectoryAction::kKeepLane,
             TrajectoryAction::kPrepareChangeLaneLeft,
             TrajectoryAction::kChangeLaneLeft};
   }
-  void entry(void) override {
-    std::cout << "[StateMachine]: Switched to: PrepareLaneChangeLeftState."
-              << std::endl;
-  }
 };
 class PrepareLaneChangeRightState : public StateMachine {
-  bool isActionActive(TrajectoryAction action) override {
-    return action == TrajectoryAction::kPrepareChangeLaneRight;
+  TrajectoryAction getAction() override {
+    return TrajectoryAction::kPrepareChangeLaneRight;
   }
   std::vector<TrajectoryAction> getValidActions() override {
     return {TrajectoryAction::kKeepLane,
             TrajectoryAction::kPrepareChangeLaneRight,
             TrajectoryAction::kChangeLaneRight};
   }
-  void entry(void) override {
-    std::cout << "[StateMachine]: Switched to: PrepareLaneChangeRightState."
-              << std::endl;
-  }
 };
 class LaneChangeLeftState : public StateMachine {
-  bool isActionActive(TrajectoryAction action) override {
-    return action == TrajectoryAction::kChangeLaneLeft;
+  TrajectoryAction getAction() override {
+    return TrajectoryAction::kChangeLaneLeft;
   }
   std::vector<TrajectoryAction> getValidActions() override {
     return {TrajectoryAction::kKeepLane, TrajectoryAction::kChangeLaneLeft};
   }
-  void entry(void) override {
-    std::cout << "[StateMachine]: Switched to: LaneChangeLeftState."
-              << std::endl;
-  }
 };
 class LaneChangeRightState : public StateMachine {
-  bool isActionActive(TrajectoryAction action) override {
-    return action == TrajectoryAction::kChangeLaneRight;
+  TrajectoryAction getAction() override {
+    return TrajectoryAction::kChangeLaneRight;
   }
   std::vector<TrajectoryAction> getValidActions() override {
     return {TrajectoryAction::kKeepLane, TrajectoryAction::kChangeLaneRight};
-  }
-  void entry(void) override {
-    std::cout << "[StateMachine]: Switched to: LaneChangeRightState."
-              << std::endl;
   }
 };
 
