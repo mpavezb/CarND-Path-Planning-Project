@@ -6,6 +6,7 @@
 
 #include "data_types.h"
 #include "helpers.h"
+#include "parameters.h"
 
 namespace udacity {
 class Prediction {

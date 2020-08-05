@@ -188,14 +188,14 @@ class TrajectoryGenerator {
     return result;
   }
 
-  double getLimitedSpeed(double target_speed) const {
-    // TODO: this helps avoiding invalid anchor generation
-    // if speed is near zero, then last trajectory points
-    // will be too near for anchors to be valid.
+  double getLimitedSpeedByMinMax(double target_speed) const {
+    // Min speed = 0.1 helps avoiding invalid anchor generation.
     const double min_speed = 0.1;
     const double max_speed = parameters_.desired_speed;
+    return fmax(min_speed, fmin(target_speed, max_speed));
+  }
 
-    // Increase/Decrease as much as needed, limited by acceleration
+  double getLimitedSpeedByAcceleration(double target_speed) const {
     double delta_speed;
     double diff_to_target = target_speed - ego_.speed;
     if (diff_to_target > 0) {
@@ -203,75 +203,77 @@ class TrajectoryGenerator {
     } else {
       delta_speed = -1.0 * fmin(fabs(diff_to_target), parameters_.deceleration);
     }
-    return fmax(min_speed, fmin(ego_.speed + delta_speed, max_speed));
+    return ego_.speed + delta_speed;
   }
 
-  double getKeepLaneSpeed(std::uint8_t lane_id) const {
+  /**
+   * If there is a car ahead, keep a slightly slower speed, to make some
+   * distance. If there is also a car behind, then keep speed from slowest one.
+   */
+  double getLimitedSpeedByCollisions(double target_speed,
+                                     std::uint8_t lane_id) const {
     const auto& lane = predictions_.lanes[lane_id];
-    // TODO: Need to know when to start stopping to avoid colliding front
-    // vehicle!
-    // TODO: Dont increase too much if there is a vehicle ahead. Keep speed
-    // instead. This will result in a sudden speed increase.
-    // Keep max velocity possible
-
-    // Default case: Go to max speed.
-    double target_speed = parameters_.desired_speed;
 
     bool has_ahead = lane.has_vehicle_ahead and lane.vehicle_ahead.is_near;
     bool has_behind = lane.has_vehicle_behind and lane.vehicle_behind.is_near;
     if (has_ahead) {
       if (has_behind) {
-        // keep speed of slower vehicle
-        target_speed =
+        double safe_speed =
             fmin(lane.vehicle_ahead.speed, lane.vehicle_behind.speed);
       } else {
-        // slow down as much as needed to match speeds
-        target_speed = lane.vehicle_ahead.speed;
+        double safe_speed =
+            lane.vehicle_ahead.speed - parameters_.keep_distance_delta_speed;
+        target_speed = fmin(safe_speed, target_speed);
       }
     }
-    return getLimitedSpeed(target_speed);
+    return target_speed;
   }
 
+  /**
+   * Attempt going to the max possible speed, but adecuate to avoid collisions.
+   */
+  double getKeepLaneSpeed(std::uint8_t lane_id) const {
+    double target_speed = parameters_.desired_speed;
+    target_speed = getLimitedSpeedByCollisions(target_speed, lane_id);
+    target_speed = getLimitedSpeedByAcceleration(target_speed);
+    target_speed = getLimitedSpeedByMinMax(target_speed);
+    return target_speed;
+  }
+
+  /**
+   * If lanes are free, attemp keeping max speed.
+   * If there is a vehicle in the intended lane, reduce speed to create gap.
+   * Then adecuate to avoid collisions on current lane.
+   */
   double getPrepareLaneChangeSpeed(std::uint8_t intended_lane_id,
                                    std::uint8_t endpoint_lane_id) const {
     const auto& intended_lane = predictions_.lanes[intended_lane_id];
-    const auto& endpoint_lane = predictions_.lanes[endpoint_lane_id];
-
-    const double keep_lane_speed = getKeepLaneSpeed(endpoint_lane_id);
-    const double next_lane_speed = getKeepLaneSpeed(intended_lane_id);
-
-    const bool has_ahead_curr =
-        endpoint_lane.has_vehicle_ahead and endpoint_lane.vehicle_ahead.is_near;
-    const bool has_ahead_next =
-        intended_lane.has_vehicle_ahead and intended_lane.vehicle_ahead.is_near;
-    const bool has_behind_curr = endpoint_lane.has_vehicle_behind and
-                                 endpoint_lane.vehicle_behind.is_near;
-    const bool has_behind_next = intended_lane.has_vehicle_behind and
-                                 intended_lane.vehicle_behind.is_near;
-
-    // go to the speed of the intended lane
-    double target_speed = intended_lane.speed;
-
-    // limit target speed according to current lane restrictions
-    // - dont exceed keep_lane_velocity
-    // - dont collide with car ahead and behind
-    double speed_limit_max = keep_lane_speed;
-    double speed_limit_min = 0.0;
-    if (has_behind_curr) {
-      speed_limit_min =
-          fmax(speed_limit_min, endpoint_lane.vehicle_behind.speed);
+    double target_speed = parameters_.desired_speed;
+    if (intended_lane.has_vehicle_ahead &&
+        intended_lane.vehicle_ahead.is_near) {
+      target_speed = intended_lane.vehicle_ahead.speed -
+                     parameters_.keep_distance_delta_speed;
     }
-    if (has_ahead_curr) {
-      speed_limit_max =
-          fmin(speed_limit_max, endpoint_lane.vehicle_ahead.speed);
-    }
-    target_speed = fmin(speed_limit_max, fmax(speed_limit_min, target_speed));
-    return getLimitedSpeed(keep_lane_speed);
+    target_speed = getLimitedSpeedByCollisions(target_speed, endpoint_lane_id);
+    target_speed = getLimitedSpeedByAcceleration(target_speed);
+    target_speed = getLimitedSpeedByMinMax(target_speed);
+    return target_speed;
   }
 
+  /**
+   * Attempt going a little faster than the prepare for lane change speed, but
+   * adecuate to avoid collisions on both lanes.
+   */
   double getLaneChangeSpeed(std::uint8_t intended_lane_id,
                             std::uint8_t endpoint_lane_id) const {
-    return getKeepLaneSpeed(intended_lane_id);
+    double target_speed =
+        getPrepareLaneChangeSpeed(intended_lane_id, endpoint_lane_id) +
+        parameters_.acceleration;
+    target_speed = getLimitedSpeedByCollisions(target_speed, endpoint_lane_id);
+    target_speed = getLimitedSpeedByCollisions(target_speed, intended_lane_id);
+    target_speed = getLimitedSpeedByAcceleration(target_speed);
+    target_speed = getLimitedSpeedByMinMax(target_speed);
+    return target_speed;
   }
 
   bool isLaneChangePossible(std::uint8_t intended_lane_id) const {

@@ -19,10 +19,10 @@ struct Parameters {
   std::uint8_t goal_lane_id{1U};  // 0=left, 1=middle, 2=right
   float goal_s{max_s};
 
-  // safety
-  float safe_distance{30.0F};
-
   // control
+  float safe_distance{30.0F};
+  float keep_distance_delta_speed{0.05};
+
   float desired_speed{49.5F / 2.237F};
   float lane_look_ahead_distance{50.0F};
 
@@ -31,8 +31,8 @@ struct Parameters {
   int n_anchors_{5};
   float anchors_look_ahead_distance{90.0F};
   float trajectory_length{30.0F};
-  float acceleration{0.1F};
-  float deceleration{0.1F};
+  float acceleration{0.3F};
+  float deceleration{0.3F};
 };
 
 }  // namespace udacity
