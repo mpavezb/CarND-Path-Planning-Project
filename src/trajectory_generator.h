@@ -6,8 +6,8 @@
 
 #include "data_types.h"
 #include "helpers.h"
+#include "parameters.h"
 #include "third_party/spline.h"
-#include "trajectory.h"
 
 namespace udacity {
 
@@ -98,9 +98,10 @@ class TrajectoryGenerator {
     anchors.push_back({ref.x2, ref.y2});
 
     // Add extra anchors
-    int n_missing_anchors = parameters_.n_anchors_ - 2;
+    const int n_missing_anchors = parameters_.n_anchors_ - 2;
     for (int i = 0; i < n_missing_anchors; ++i) {
-      float spacing = parameters_.look_ahead_distance_ / n_missing_anchors;
+      float spacing =
+          parameters_.anchors_look_ahead_distance / n_missing_anchors;
       float s = ref.s + (i + 1) * spacing;
       float d = parameters_.lane_width * (0.5 + intended_lane_id);
       std::vector<double> anchor =
@@ -168,7 +169,7 @@ class TrajectoryGenerator {
     tk::spline gen;
     gen.set_points(getPathX(ego_anchors), getPathY(ego_anchors));
 
-    double target_x = parameters_.trajectory_length_;
+    double target_x = parameters_.trajectory_length;
     double target_y = gen(target_x);
     double target_dist = distance(0, 0, target_x, target_y);
     double N = target_dist / (speed * parameters_.time_step_);
@@ -276,12 +277,8 @@ class TrajectoryGenerator {
   bool isLaneChangePossible(std::uint8_t intended_lane_id) const {
     const auto& lane = predictions_.lanes[intended_lane_id];
     for (const auto& vehicle : lane.vehicles) {
-      if (vehicle.is_ahead and vehicle.predicted_distance <
-                                   parameters_.lane_change_gap_ahead_length) {
-        return false;
-      }
-      if (vehicle.is_behind and vehicle.predicted_distance <
-                                    parameters_.lane_change_gap_behind_length) {
+      if ((vehicle.is_ahead or vehicle.is_behind) and
+          vehicle.predicted_distance < parameters_.safe_distance) {
         return false;
       }
     }

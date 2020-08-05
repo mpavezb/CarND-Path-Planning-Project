@@ -6,10 +6,10 @@
 #include "data_types.h"
 #include "helpers.h"
 #include "motion_planning.h"
+#include "parameters.h"
 #include "prediction.h"
 #include "serialization.h"
 #include "third_party/json.hpp"
-#include "trajectory.h"
 
 // for convenience
 using nlohmann::json;

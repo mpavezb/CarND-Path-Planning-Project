@@ -5,7 +5,7 @@
 #include <memory>
 
 #include "data_types.h"
-#include "trajectory.h"
+#include "parameters.h"
 
 namespace udacity {
 

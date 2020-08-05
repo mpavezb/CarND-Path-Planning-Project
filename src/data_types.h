@@ -18,41 +18,7 @@ struct Point {
   Point(double x, double y) : x(x), y(y) {}
 };
 
-std::ostream& operator<<(std::ostream& os, const Point& p) {
-  return os << "(" << p.x << "," << p.y << ")";
-}
-
 typedef std::vector<Point> Path;
-
-struct Parameters {
-  // map
-  std::string map_filename{"../data/highway_map.csv"};
-  float max_s = 6945.554F;
-  float lane_width{4.0F};
-  float speed_limit{50.0 / 2.237F};
-
-  // lifecycle
-  float time_step_{0.02F};
-
-  // target
-  std::uint8_t goal_lane_id{1U};  // 0=left, 1=middle, 2=right
-  float goal_s{max_s};
-
-  // control
-  float desired_speed{49.5F / 2.237F};
-  float min_distance_to_vehicle{30.0F};
-  float lane_speed_vehicle_distance{50.0F};
-  float lane_change_gap_ahead_length{30.0F};
-  float lane_change_gap_behind_length{10.0F};
-
-  // trajectory generation
-  int path_size_{50};
-  int n_anchors_{5};
-  float look_ahead_distance_{90.0F};
-  float trajectory_length_{30.0F};
-  float acceleration{0.1F};
-  float deceleration{0.2F};
-};
 
 struct Map {
   double max_s{0.0};
@@ -127,6 +93,74 @@ struct EgoStatus {
   float s{0.0F};
   float speed{0.0F};
 };
+
+struct AnchorReference {
+  double s;
+  double d;
+  double x1;
+  double x2;
+  double y1;
+  double y2;
+  double yaw;
+};
+
+typedef Path SplineAnchors;
+
+enum class TrajectoryAction : std::uint8_t {
+  kKeepLane,
+  kChangeLaneLeft,
+  kChangeLaneRight,
+  kPrepareChangeLaneLeft,
+  kPrepareChangeLaneRight
+};
+
+struct TrajectoryCharacteristics {
+  TrajectoryAction action;
+  double speed;
+  double cost;
+  std::uint8_t intended_lane_id;  // expected lane id after successful maneuver.
+  std::uint8_t endpoint_lane_id;  // Lane id for this trajectory's endpoint.
+  bool is_valid{false};
+};
+
+struct Trajectory {
+  Path path;
+  TrajectoryCharacteristics characteristics;
+
+  bool operator<(const Trajectory& other) const {
+    return this->characteristics.cost < other.characteristics.cost;
+  }
+};
+
+std::ostream& operator<<(std::ostream& os, const Point& p) {
+  return os << "(" << p.x << "," << p.y << ")";
+}
+
+std::ostream& operator<<(std::ostream& os, const AnchorReference& r) {
+  return os << "(s,d): (" << r.s << "," << r.d << "), p1: " << Point(r.x1, r.y1)
+            << ", p2: " << Point(r.x2, r.y2) << ", yaw: " << r.yaw;
+}
+
+std::ostream& operator<<(std::ostream& os, const TrajectoryAction& action) {
+  switch (action) {
+    case TrajectoryAction::kKeepLane:
+      os << "kKeepLane";
+      break;
+    case TrajectoryAction::kChangeLaneLeft:
+      os << "kChangeLaneLeft";
+      break;
+    case TrajectoryAction::kChangeLaneRight:
+      os << "kChangeLaneRight";
+      break;
+    case TrajectoryAction::kPrepareChangeLaneLeft:
+      os << "kPrepareChangeLaneLeft";
+      break;
+    case TrajectoryAction::kPrepareChangeLaneRight:
+      os << "kPrepareChangeLaneRight";
+      break;
+  }
+  return os;
+}
 
 }  // namespace udacity
 

@@ -63,7 +63,7 @@ class Prediction {
     v.predicted_distance = fabs(v.predicted_s - getPredictedEgo());
     v.is_ahead = v.s > telemetry_.car_s;
     v.is_behind = v.s < telemetry_.car_s;
-    v.is_near = v.predicted_distance < parameters_.min_distance_to_vehicle;
+    v.is_near = v.predicted_distance < parameters_.safe_distance;
     return v;
   }
 
@@ -120,7 +120,7 @@ class Prediction {
 
     // lane speed
     if (lane.has_vehicle_ahead and
-        lane.vehicle_ahead.distance < parameters_.lane_speed_vehicle_distance) {
+        lane.vehicle_ahead.distance < parameters_.lane_look_ahead_distance) {
       lane.speed = lane.vehicle_ahead.speed;
     } else {
       lane.speed = parameters_.speed_limit;
