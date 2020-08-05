@@ -20,7 +20,8 @@ struct Parameters {
   float goal_s{max_s};
 
   // control
-  float safe_distance{30.0F};
+  float safe_distance_ahead{20.0F};
+  float safe_distance_behind{10.0F};
   float keep_distance_delta_speed{0.05};
 
   float desired_speed{49.5F / 2.237F};

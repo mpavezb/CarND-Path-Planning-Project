@@ -279,8 +279,12 @@ class TrajectoryGenerator {
   bool isLaneChangePossible(std::uint8_t intended_lane_id) const {
     const auto& lane = predictions_.lanes[intended_lane_id];
     for (const auto& vehicle : lane.vehicles) {
-      if ((vehicle.is_ahead or vehicle.is_behind) and
-          vehicle.predicted_distance < parameters_.safe_distance) {
+      if (vehicle.is_ahead and
+          vehicle.predicted_distance < parameters_.safe_distance_ahead) {
+        return false;
+      }
+      if (vehicle.is_behind and
+          vehicle.predicted_distance < parameters_.safe_distance_behind) {
         return false;
       }
     }

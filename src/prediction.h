@@ -62,9 +62,14 @@ class Prediction {
     v.distance = fabs(v.s - telemetry_.car_s);
     v.predicted_s = predictVehiclePositionAtReference(v.s, v.speed);
     v.predicted_distance = fabs(v.predicted_s - getPredictedEgo());
-    v.is_ahead = v.s > telemetry_.car_s;
-    v.is_behind = v.s < telemetry_.car_s;
-    v.is_near = v.predicted_distance < parameters_.safe_distance;
+    if (v.s > telemetry_.car_s) {
+      v.is_ahead = true;
+      v.is_near = v.predicted_distance < parameters_.safe_distance_ahead;
+    } else {
+      v.is_ahead = false;
+      v.is_near = v.predicted_distance < parameters_.safe_distance_behind;
+    }
+    v.is_behind = not v.is_ahead;
     return v;
   }
 
