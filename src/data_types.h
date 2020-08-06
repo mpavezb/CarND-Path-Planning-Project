@@ -77,6 +77,7 @@ struct Vehicle {
   double distance;  // abs
   double predicted_s;
   double predicted_distance;  // abs
+  FrenetPath frenet_path;
   bool is_ahead;
   bool is_behind;
   bool is_near;

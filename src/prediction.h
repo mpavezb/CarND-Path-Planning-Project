@@ -46,6 +46,18 @@ class Prediction {
     return predicted;
   }
 
+  /**
+   * Predicts frenet path assuming keep lane behavior at constant speed.
+   */
+  FrenetPath getFrenetPath(double s0, double d0, double speed) const {
+    FrenetPath result;
+    for (int i = 0; i < parameters_.path_size; ++i) {
+      double s = s0 + i * speed * parameters_.time_step_;
+      result.emplace_back(s, d0);
+    }
+    return result;
+  }
+
   double getPredictedEgo() const {
     if (telemetry_.last_path.size() > 1) {
       auto pos =
@@ -82,6 +94,7 @@ class Prediction {
       v.is_near = v.predicted_distance < parameters_.safe_distance_behind;
     }
     v.is_behind = not v.is_ahead;
+    v.frenet_path = getFrenetPath(v.s, v.d, v.speed);
     return v;
   }
 
