@@ -99,14 +99,18 @@ class StateMachine : public tinyfsm::Fsm<StateMachine> {
           << std::endl;
       return;
     }
-    updateDebounceTimer();
-    if (not isDebounceTimeout()) {
-      event.output->selected_trajectory =
-          generator->getTrajectoryForAction(getAction());
-      return;
-    }
     auto best_trajectory = *valid_trajectories.begin();
     auto best_action = best_trajectory.characteristics.action;
+
+    // only apply debounce to KeepLane->PLCX
+    if (getAction() == TrajectoryAction::kKeepLane) {
+      updateDebounceTimer();
+      if (not isDebounceTimeout()) {
+        event.output->selected_trajectory =
+            generator->getTrajectoryForAction(TrajectoryAction::kKeepLane);
+        return;
+      }
+    }
     event.output->selected_trajectory = best_trajectory;
     executeTransition(best_action);
   };
