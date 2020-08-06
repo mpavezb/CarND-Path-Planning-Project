@@ -111,19 +111,17 @@ The simulator provides telemetry information in json format through a web socket
 
 ## Model Documentation
 
-### Overview
-
 ### Input Data
 
 Telemetry data is provided through a websocket with the simulator, and comes in JSON format. Map specifications are provided in a CSV file. Deserialization of both messages is implemented in `serialization.h`.
 
 ### Prediction
 
-Current implementation does not consider vehicle tracking and prediction. Current vehicle's frenet coordinate `s` is extrapolated according to the new points added to the trajectory.
+The current vehicle's frenet coordinate `s` is extrapolated in time using a constant speed motion model.
 
-This is a shortcomming of the implementation. Scenarios like lane change are not predicted, and could lead to collisions, if Ego were to near to the Vehicle.
+The implementation does not consider vehicle tracking and prediction of lane changes. This is a shortcomming of the implementation. Lane changes executed by others could lead to collisions.
 
-Each vehicle provided by the current telemetry is processed to obtain the following information:
+Based on telemetry information, each object is converted into a `Vehicle` containing  the following information:
 - ID
 - Frenet coordinates: `d`, `s`.
 - Speed.
@@ -131,28 +129,31 @@ Each vehicle provided by the current telemetry is processed to obtain the follow
 - Distance to ego.
 - Predicted `s`.
 - Predicted distance to ego.
+- Predicted frenet path.
 - Checks: *is vehicle ahead*, *is vehicle behind*, and *is vehicle near*.
 
-Also, for each lane, also the following is computed:
+Also, for each lane the following is computed:
 - Nearest vehicle ahead.
 - Nearest vehicle behind.
 - Lane speed.
 
 ### Trajectory Generation
 
-Following the advices from the lectures, the trajectory generation is based on splines, in order to help ensure the continuity of the points. 
+Following the advices from the lectures, the trajectory generation is based on splines. This helps ensuring the continuity of the points. 
 
-At each step, a set of anchors is computed based on the last 2 points of the last trajectory. In cases were the previous trajectory is empty, then the current car position is used as anchor. See `TrajectoryGenerator::updateAnchorReference()`.
+Instead of reusing the previous trajectory completely, only a few points are kept. The remaining points are generated at each step. This helps esuring a quick response of the vehicle.
 
-Before generating the spline, all anchors are transformed to the ego frame, helping to ensure the data in x axis is as horizontal as possible. The generated spline is then used to interpolate trajectory points as needed. The points are spaced as needed, in order to accomodate for the desired speed.
+A set of anchors is computed based on the selected points from the previous trajectory. In cases were this is empty, the current car position is used as anchor. See `TrajectoryGenerator::updateAnchorReference()`.
 
-The `TrajectoryGenerator` class provides generation of different trajectory actions in the `getTrajectoryForAction()` method. Depending on the case, the anchors can be created on the current lane (keep lane, prepare lane change), or in a different lane (lane change). The lane change is only executed if there is a valid gap in the next lane where the car can fit (See: `TrajectoryGenerator::isLaneChangePossible).
+Before generating the spline, all anchors are transformed to the ego frame, helping to ensure the data in x axis is as horizontal as possible. The spline is then used to interpolate the trajectory points as needed. These are spaced to accomodate for the desired speed.
+
+The `TrajectoryGenerator` class provides generation of different trajectory actions in the `getTrajectoryForAction()` method. Depending on the case, the anchors can be created on the current lane (keep lane, prepare lane change), or in a different lane (lane change). The lane change is only executed if there is a valid gap in the next lane where the car can fit (See: `TrajectoryGenerator::isLaneChangePossible`).
 
 The trajectory speed is controlled based on the desired speed (49.5 mph), the speed limit (50 mph), and the speed of the objects around. The velocity is increased whenever possible, and decreased if there is an object in front. If the car is preparing for a lane change, then the speed is also adjusted to match the velocity of the slowest between both lanes. See `TrajectoryGenerator::getOptimalSpeed()`.
 
 ### State Machine
 
-The state machine considers 5 states, as adviced in the lessons, were the only way to execute a lane change, is to prepare for it beforehand:
+The state machine considers 5 states, as adviced in the lessons, were the only way to execute a lane change is to prepare for it beforehand:
 - KeepLaneState
 - PrepareLaneChangeLeftState
 - PrepareLaneChangeRightState
@@ -163,9 +164,11 @@ The states are implemented in `src/state_machine.h`, and trajectory evaluation i
 
 During each step, only trajectories for next possible states are generated. These are further evaluated to check for validity and cost. The transition is executed based on the trajectory with the lowest cost, if any. The transition logic is implemented in `StateMachine::react()`.
 
-At the moment, only one validation is implemented: `TrajectoryValidator::isActionLaneValid()`, which negates lane changes outside the road. 
+At the moment, two validations are implemented: `TrajectoryValidator::isActionLaneValid()`, which negates lane changes outside the road. And `TrajectoryValidator::isCollisionPredictedInLaneChange()`, which invalidades any ane change trajectory leading to collisions at any point in time.
 
-The same cost functions studied in the lessons were implemented: `SpeedCostFunction`, `GoalDistanceCostFunction`, and `InefficientLaneCostFunction`. 
+The same cost functions studied in the lessons were implemented: `SpeedCostFunction`, `GoalDistanceCostFunction`, and `InefficientLaneCostFunction`. Also, the `PreferEmptyLaneCostFunction` was added, as a linear decreasing cost, depending on the distance to obstacles on the intended lane.
+
+In order to avoid quick succesion of KeepLane <-> PrepareLaneChangeX transitions, a debounce timer was added (see `StateMachine::isDebounceTimeout()`). This provides a more stable sequence of states.
 
 
 ### Output Data
@@ -190,13 +193,8 @@ The source code is located in the `src/` directory:
 
 ## Future Improvements
 
-- Prefer changing to empty lane instead of lane with cars ahead.
-- Add debouncing for transitions KeepLane <-> PrepareLaneChangeX, to avoid quick state changes.
-- Run behavior planning, and prediction/trajectory-generation modules at different frequencies.
-- Implement predictions for other vehicles using approaches from the lessons.
-- Add trajectory validation for collisions.
+- Ensure car is centered on the lane at all times, even on tight turns.
+- Implement KeepDistance behaviour. For instance, a control window can be used (lets say ~40 meters), and a speed-based distance controller to keep distance constant (lets say ~30 m). This would avoid intermitent slow downs.
+- Predict lane changes of vehicles, so that the car can react on time.
 - Add extra cost functions.
-- Add KeepSpeed Trajectory State when taking.
-
-
 
