@@ -199,9 +199,10 @@ class TrajectoryGenerator {
     double delta_speed;
     double diff_to_target = target_speed - ego_.speed;
     if (diff_to_target > 0) {
-      delta_speed = fmin(diff_to_target, parameters_.acceleration);
+      delta_speed = fmin(diff_to_target, parameters_.max_acceleration);
     } else {
-      delta_speed = -1.0 * fmin(fabs(diff_to_target), parameters_.deceleration);
+      delta_speed =
+          -1.0 * fmin(fabs(diff_to_target), parameters_.max_deceleration);
     }
     return ego_.speed + delta_speed;
   }
@@ -213,20 +214,19 @@ class TrajectoryGenerator {
   double getLimitedSpeedByCollisions(double target_speed,
                                      std::uint8_t lane_id) const {
     const auto& lane = predictions_.lanes[lane_id];
-
     bool has_ahead = lane.has_vehicle_ahead and lane.vehicle_ahead.is_near;
     bool has_behind = lane.has_vehicle_behind and lane.vehicle_behind.is_near;
+
+    double safe_speed = target_speed;
     if (has_ahead) {
       if (has_behind) {
-        double safe_speed =
-            fmin(lane.vehicle_ahead.speed, lane.vehicle_behind.speed);
+        safe_speed = fmin(lane.vehicle_ahead.speed, lane.vehicle_behind.speed);
       } else {
-        double safe_speed =
+        safe_speed =
             lane.vehicle_ahead.speed - parameters_.keep_distance_delta_speed;
-        target_speed = fmin(safe_speed, target_speed);
       }
     }
-    return target_speed;
+    return fmin(target_speed, safe_speed);
   }
 
   /**
@@ -249,7 +249,7 @@ class TrajectoryGenerator {
                                    std::uint8_t endpoint_lane_id) const {
     const auto& intended_lane = predictions_.lanes[intended_lane_id];
     double target_speed = parameters_.desired_speed;
-    if (intended_lane.has_vehicle_ahead &&
+    if (intended_lane.has_vehicle_ahead and
         intended_lane.vehicle_ahead.is_near) {
       target_speed = intended_lane.vehicle_ahead.speed -
                      parameters_.keep_distance_delta_speed;
@@ -268,7 +268,7 @@ class TrajectoryGenerator {
                             std::uint8_t endpoint_lane_id) const {
     double target_speed =
         getPrepareLaneChangeSpeed(intended_lane_id, endpoint_lane_id) +
-        parameters_.acceleration;
+        parameters_.max_acceleration;
     target_speed = getLimitedSpeedByCollisions(target_speed, endpoint_lane_id);
     target_speed = getLimitedSpeedByCollisions(target_speed, intended_lane_id);
     target_speed = getLimitedSpeedByAcceleration(target_speed);
