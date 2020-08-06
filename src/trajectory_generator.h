@@ -59,8 +59,11 @@ class TrajectoryGenerator {
       ref.x2 = telemetry_.last_path[last_path_size - 1].x;
       ref.y2 = telemetry_.last_path[last_path_size - 1].y;
       ref.yaw = atan2(ref.y2 - ref.y1, ref.x2 - ref.x1);
-      ref.s = telemetry_.end_path_s;
-      ref.d = telemetry_.car_d;
+
+      auto frenet = getFrenet(ref.x2, ref.y2, ref.yaw, map_->waypoints_x,
+                              map_->waypoints_y);
+      ref.s = frenet[0];
+      ref.d = frenet[1];
       // std::cout << "Last Path Based AnchorReference: " << ref << std::endl;
     }
   }

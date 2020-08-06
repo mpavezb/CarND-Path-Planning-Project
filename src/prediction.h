@@ -48,7 +48,19 @@ class Prediction {
 
   double getPredictedEgo() const {
     if (telemetry_.last_path.size() > 1) {
-      return telemetry_.end_path_s;
+      auto pos =
+          fmin(parameters_.previous_path_keep, telemetry_.last_path.size());
+      float x1 = telemetry_.last_path[pos - 2].x;
+      float y1 = telemetry_.last_path[pos - 2].y;
+      float x2 = telemetry_.last_path[pos - 1].x;
+      float y2 = telemetry_.last_path[pos - 1].y;
+      float yaw = atan2(y2 - y1, x2 - x1);
+
+      auto frenet =
+          getFrenet(x2, y2, yaw, map_->waypoints_x, map_->waypoints_y);
+      float s = frenet[0];
+      float d = frenet[1];
+      return s;
     }
     return telemetry_.car_s;
   }
