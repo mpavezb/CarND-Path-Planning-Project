@@ -56,10 +56,9 @@ class Prediction {
       float y2 = telemetry_.last_path[pos - 1].y;
       float yaw = atan2(y2 - y1, x2 - x1);
 
-      auto frenet =
-          getFrenet(x2, y2, yaw, map_->waypoints_x, map_->waypoints_y);
-      float s = frenet[0];
-      float d = frenet[1];
+      auto frenet = getFrenet(x2, y2, yaw, map_);
+      float s = frenet.s;
+      float d = frenet.d;
       return s;
     }
     return telemetry_.car_s;

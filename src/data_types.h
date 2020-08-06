@@ -18,6 +18,13 @@ struct Point {
   Point(double x, double y) : x(x), y(y) {}
 };
 
+struct Frenet {
+  double s;
+  double d;
+  Frenet() : s(.0), d(.0) {}
+  Frenet(double s, double d) : s(s), d(d) {}
+};
+
 typedef std::vector<Point> Path;
 
 struct Map {

@@ -60,10 +60,9 @@ class TrajectoryGenerator {
       ref.y2 = telemetry_.last_path[last_path_size - 1].y;
       ref.yaw = atan2(ref.y2 - ref.y1, ref.x2 - ref.x1);
 
-      auto frenet = getFrenet(ref.x2, ref.y2, ref.yaw, map_->waypoints_x,
-                              map_->waypoints_y);
-      ref.s = frenet[0];
-      ref.d = frenet[1];
+      auto frenet = getFrenet(ref.x2, ref.y2, ref.yaw, map_);
+      ref.s = frenet.s;
+      ref.d = frenet.d;
       // std::cout << "Last Path Based AnchorReference: " << ref << std::endl;
     }
   }
@@ -109,9 +108,8 @@ class TrajectoryGenerator {
           parameters_.anchors_look_ahead_distance / n_missing_anchors;
       float s = ref.s + (i + 1) * spacing;
       float d = parameters_.lane_width * (0.5 + intended_lane_id);
-      std::vector<double> anchor =
-          getXY(s, d, map_->waypoints_s, map_->waypoints_x, map_->waypoints_y);
-      anchors.push_back({anchor[0], anchor[1]});
+      Point anchor = getXY(s, d, map_);
+      anchors.push_back(anchor);
     }
     return anchors;
   }
