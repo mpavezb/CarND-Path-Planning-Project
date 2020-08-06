@@ -49,7 +49,7 @@ class SpeedCostFunction : public CostFunction {
 
  private:
   double kStopCost = 0.9;
-  double kFunctionWeight{10.0};
+  double kFunctionWeight{10};
 };
 
 /**
@@ -81,7 +81,7 @@ class GoalDistanceCostFunction : public CostFunction {
   }
 
  private:
-  double kFunctionWeight{100.0};
+  double kFunctionWeight{100};
 };
 
 /**
@@ -117,12 +117,32 @@ class InefficientLaneCostFunction : public CostFunction {
   double kFunctionWeight{15};
 };
 
+class PreferEmptyLaneCostFunction : public CostFunction {
+ public:
+  double getCost(const Trajectory &trajectory,
+                 const PredictionData &predictions, const EgoStatus &,
+                 const Parameters &) override {
+    int intended_lane_id = trajectory.characteristics.intended_lane_id;
+    auto &lane = predictions.lanes[intended_lane_id];
+
+    double cost = 0;
+    if (lane.has_vehicle_ahead) {
+      cost = 0.2;
+    }
+    return cost * kFunctionWeight;
+  }
+
+ private:
+  double kFunctionWeight{10};
+};
+
 class TrajectoryValidator {
  public:
   TrajectoryValidator(const Parameters &parameters) : parameters_(parameters) {
     cost_functions.emplace_back(new SpeedCostFunction());
     cost_functions.emplace_back(new GoalDistanceCostFunction());
     cost_functions.emplace_back(new InefficientLaneCostFunction());
+    cost_functions.emplace_back(new PreferEmptyLaneCostFunction());
   }
 
   bool isActionLaneValid(const Trajectory &trajectory) {
