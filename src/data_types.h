@@ -26,6 +26,7 @@ struct Frenet {
 };
 
 typedef std::vector<Point> Path;
+typedef std::vector<Frenet> FrenetPath;
 
 struct Map {
   double max_s{0.0};
@@ -132,6 +133,7 @@ struct TrajectoryCharacteristics {
 
 struct Trajectory {
   Path path;
+  FrenetPath frenet_path;
   TrajectoryCharacteristics characteristics;
 
   bool operator<(const Trajectory& other) const {

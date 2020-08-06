@@ -190,6 +190,7 @@ class TrajectoryGenerator {
       Point map_point = transformToMap(ego_point);
       result.path.push_back({map_point.x, map_point.y});
     }
+    result.frenet_path = getFrenetPath(result.path, telemetry_.car_yaw, map_);
     result.characteristics.speed = speed;
     result.characteristics.is_valid = true;
 

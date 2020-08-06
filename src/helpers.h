@@ -131,6 +131,31 @@ udacity::Frenet getFrenet(double x, double y, double theta,
   return {frenet_s, frenet_d};
 }
 
+udacity::FrenetPath getFrenetPath(const udacity::Path &path, double yaw_init,
+                                  std::shared_ptr<udacity::Map> map) {
+  udacity::FrenetPath result;
+  bool first_value = true;
+  double x1{0}, x2{0}, y1{0}, y2{0};
+  for (const auto point : path) {
+    x1 = x2;
+    y1 = y1;
+    x2 = point.x;
+    y2 = point.y;
+
+    double yaw;
+    if (first_value) {
+      yaw = yaw_init;
+      first_value = false;
+    } else {
+      yaw = atan2(y2 - y1, x2 - x1);
+    }
+
+    auto frenet = getFrenet(x2, y2, yaw, map);
+    result.push_back(frenet);
+  }
+  return result;
+}
+
 // Transform from Frenet s,d coordinates to Cartesian x,y
 udacity::Point getXY(double s, double d, std::shared_ptr<udacity::Map> map) {
   int prev_wp = -1;
