@@ -35,6 +35,11 @@ struct Parameters {
   int n_anchors{5};
   float anchors_look_ahead_distance{90.0F};
   float trajectory_length{30.0F};
+
+  // collision detection
+  double collision_th_s{7};
+  double collision_th_d{1.5};
+  double collision_steps{30};
 };
 
 }  // namespace udacity

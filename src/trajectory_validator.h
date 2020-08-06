@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "data_types.h"
+#include "helpers.h"
 #include "parameters.h"
 
 namespace udacity {
@@ -145,6 +146,25 @@ class TrajectoryValidator {
     cost_functions.emplace_back(new PreferEmptyLaneCostFunction());
   }
 
+  bool isCollisionPredictedInLaneChange(const Trajectory &trajectory) {
+    const auto action = trajectory.characteristics.action;
+    const auto intended_lane_id = trajectory.characteristics.intended_lane_id;
+    const auto &intended_lane = predictions_.lanes[intended_lane_id];
+
+    Frenet threshold{parameters_.collision_th_s, parameters_.collision_th_d};
+    if (action == TrajectoryAction::kChangeLaneLeft ||
+        action == TrajectoryAction::kChangeLaneRight) {
+      for (const auto &vehicle : intended_lane.vehicles) {
+        if (arePathsColliding(trajectory.frenet_path, vehicle.frenet_path,
+                              threshold, parameters_.collision_steps)) {
+          std::cout << action << " is invalid due to collision" << std::endl;
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   bool isActionLaneValid(const Trajectory &trajectory) {
     if (ego_.lane_id == 0) {
       if (trajectory.characteristics.action ==
@@ -166,6 +186,7 @@ class TrajectoryValidator {
   bool isTrajectoryValid(const Trajectory &trajectory) {
     bool is_valid = trajectory.characteristics.is_valid;
     is_valid = is_valid and isActionLaneValid(trajectory);
+    is_valid = is_valid and not isCollisionPredictedInLaneChange(trajectory);
     return is_valid;
   }
 

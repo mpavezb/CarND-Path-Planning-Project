@@ -199,6 +199,32 @@ std::vector<double> getPathY(const udacity::Path &path) {
   return result;
 }
 
+bool arePointsColliding(const udacity::Frenet &p1, const udacity::Frenet &p2,
+                        const udacity::Frenet &threshold) {
+  double delta_d = fabs(p1.d - p2.d);
+  double delta_s = fabs(p1.s - p2.s);
+  return delta_d < threshold.d and delta_s < threshold.s;
+}
+
+/**
+ * True if paths collide on any of the first N points, given the lateral and
+ * longitudinal thesholds.
+ * This assumes vehicles are parallel to the lane, so error is introduced for
+ * lane changes.
+ */
+bool arePathsColliding(const udacity::FrenetPath &path1,
+                       const udacity::FrenetPath &path2,
+                       udacity::Frenet threshold, int N) {
+  for (int i = 0; i < N; ++i) {
+    const auto &f1 = path1[i];
+    const auto &f2 = path2[i];
+    if (arePointsColliding(f1, f2, threshold)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 std::uint8_t getLaneIdFromFrenet(double d, double lane_width) {
   return fmax(fmin(2, floor(d / lane_width)), 0);
 }
