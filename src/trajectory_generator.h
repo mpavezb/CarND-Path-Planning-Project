@@ -260,8 +260,8 @@ class TrajectoryGenerator {
     double target_speed = parameters_.desired_speed;
     if (intended_lane.has_vehicle_ahead and
         intended_lane.vehicle_ahead.is_near) {
-      target_speed = intended_lane.vehicle_ahead.speed -
-                     parameters_.keep_distance_delta_speed;
+      target_speed =
+          intended_lane.vehicle_ahead.speed - parameters_.max_deceleration;
     }
     target_speed = getLimitedSpeedByCollisions(target_speed, endpoint_lane_id);
     target_speed = getLimitedSpeedByAcceleration(target_speed);
