@@ -27,14 +27,18 @@ struct Parameters {
   float max_acceleration{0.1F};
   float max_deceleration{0.2F};
 
-  float lane_look_ahead_distance{50.0F};
+  float lane_speed_look_ahead_distance{50.0F};
 
   // trajectory generation
   int path_size{50};
-  int previous_path_keep{10};  // react sooner!
+  int previous_path_keep{10};
   int n_anchors{5};
   float anchors_look_ahead_distance{90.0F};
   float trajectory_length{30.0F};
+
+  // cost
+  double cost_empty_lane_dmax{100};
+  double cost_empty_lane_cmax{0.5};
 
   // collision detection
   double collision_th_s{7};

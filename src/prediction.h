@@ -151,7 +151,8 @@ class Prediction {
 
     // lane speed
     if (lane.has_vehicle_ahead and
-        lane.vehicle_ahead.distance < parameters_.lane_look_ahead_distance) {
+        lane.vehicle_ahead.distance <
+            parameters_.lane_speed_look_ahead_distance) {
       lane.speed = lane.vehicle_ahead.speed;
     } else {
       lane.speed = parameters_.speed_limit;

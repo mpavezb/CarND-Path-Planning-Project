@@ -41,7 +41,7 @@ class SpeedCostFunction : public CostFunction {
       cost = 1;
     }
 
-    // std::cout << "[Cost SpeedCost]" << trajectory.characteristics.action
+    // std::cout << "[Cost:Speed]" << trajectory.characteristics.action
     //           << ", speed: " << speed << ", best: " << kBestSpeed
     //           << ", c: " << cost * kFunctionWeight << std::endl;
 
@@ -72,7 +72,7 @@ class GoalDistanceCostFunction : public CostFunction {
     int delta_d = 2.0 * goal_lane - intended_lane - endpoint_lane;
     double cost = 1 - exp(-(std::abs(delta_d) / distance_to_goal));
 
-    // std::cout << "[Cost DistanceToGoal]" << trajectory.characteristics.action
+    // std::cout << "[Cost:DistanceToGoal]" << trajectory.characteristics.action
     //           << ", goal id: " << goal_lane
     //           << ", intended id: " << intended_lane
     //           << ", endpoint id: " << endpoint_lane
@@ -104,7 +104,7 @@ class InefficientLaneCostFunction : public CostFunction {
         2.0 - (intended_lane_speed + endpoint_lane_speed) / current_speed;
     cost = fmax(0.0, cost);
 
-    // std::cout << "[Cost InefficientLane]" <<
+    // std::cout << "[Cost:InefficientLane]" <<
     // trajectory.characteristics.action
     //           << ", ispeed: " << intended_lane_speed
     //           << ", espeed: " << endpoint_lane_speed
@@ -122,14 +122,22 @@ class PreferEmptyLaneCostFunction : public CostFunction {
  public:
   double getCost(const Trajectory &trajectory,
                  const PredictionData &predictions, const EgoStatus &,
-                 const Parameters &) override {
+                 const Parameters &parameters) override {
     int intended_lane_id = trajectory.characteristics.intended_lane_id;
     auto &lane = predictions.lanes[intended_lane_id];
 
+    double d_max = parameters.cost_empty_lane_dmax;
+    double c_max = parameters.cost_empty_lane_cmax;
+
     double cost = 0;
-    if (lane.has_vehicle_ahead) {
-      cost = 0.2;
+    if (lane.has_vehicle_ahead and lane.vehicle_ahead.distance < d_max) {
+      double distance = lane.vehicle_ahead.distance;
+      cost = c_max * (1.0 - distance / d_max);
     }
+    // std::cout << "[Cost:EmptyLane]" << trajectory.characteristics.action
+    //           << ", ilane: " << intended_lane_id
+    //           << ", c: " << cost * kFunctionWeight << std::endl;
+
     return cost * kFunctionWeight;
   }
 
@@ -157,7 +165,7 @@ class TrajectoryValidator {
       for (const auto &vehicle : intended_lane.vehicles) {
         if (arePathsColliding(trajectory.frenet_path, vehicle.frenet_path,
                               threshold, parameters_.collision_steps)) {
-          std::cout << action << " is invalid due to collision" << std::endl;
+          // std::cout << action << " is invalid due to collision" << std::endl;
           return true;
         }
       }
