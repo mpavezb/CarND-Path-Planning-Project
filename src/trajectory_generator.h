@@ -1,6 +1,7 @@
 #ifndef TRAJECTORY_GENERATOR_H_
 #define TRAJECTORY_GENERATOR_H_
 
+#include <algorithm>
 #include <memory>
 #include <vector>
 
@@ -38,7 +39,8 @@ class TrajectoryGenerator {
    */
   void updateAnchorReference() {
     AnchorReference& ref = anchor_reference_;
-    auto last_path_size = telemetry_.last_path.size();
+    auto last_path_size =
+        fmin(parameters_.previous_path_keep, telemetry_.last_path.size());
     if (last_path_size < 2) {
       // based only on car
       ref.yaw = telemetry_.car_yaw;
@@ -98,7 +100,7 @@ class TrajectoryGenerator {
     anchors.push_back({ref.x2, ref.y2});
 
     // Add extra anchors
-    const int n_missing_anchors = parameters_.n_anchors_ - 2;
+    const int n_missing_anchors = parameters_.n_anchors - 2;
     for (int i = 0; i < n_missing_anchors; ++i) {
       float spacing =
           parameters_.anchors_look_ahead_distance / n_missing_anchors;
@@ -118,9 +120,9 @@ class TrajectoryGenerator {
   SplineAnchors transformToEgo(const SplineAnchors& anchors) const {
     SplineAnchors result;
     const AnchorReference& ref = anchor_reference_;
-    result.resize(parameters_.n_anchors_);
+    result.resize(parameters_.n_anchors);
 
-    for (int i = 0; i < parameters_.n_anchors_; i++) {
+    for (int i = 0; i < parameters_.n_anchors; i++) {
       double shift_x = anchors[i].x - ref.x2;
       double shift_y = anchors[i].y - ref.y2;
       result[i].x = shift_x * cos(0 - ref.yaw) - shift_y * sin(0 - ref.yaw);
@@ -159,8 +161,13 @@ class TrajectoryGenerator {
   Trajectory interpolateMissingPoints(const SplineAnchors& ego_anchors,
                                       double speed) const {
     Trajectory result;
-    result.path = telemetry_.last_path;
-    int missing_points = parameters_.path_size_ - result.path.size();
+    auto points_to_keep =
+        fmin(parameters_.previous_path_keep, telemetry_.last_path.size());
+
+    for (int i = 0; i < points_to_keep; ++i) {
+      result.path.push_back(telemetry_.last_path[i]);
+    }
+    int missing_points = parameters_.path_size - result.path.size();
 
     if (not areAnchorsValid(ego_anchors)) {
       return generateInvalidTrajectory();

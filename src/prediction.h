@@ -38,7 +38,8 @@ class Prediction {
    */
   double predictVehiclePositionAtReference(double s, double speed) const {
     double predicted = s;
-    int prev_size = telemetry_.last_path.size();
+    int prev_size =
+        fmin(parameters_.previous_path_keep, telemetry_.last_path.size());
     if (prev_size > 1) {
       predicted += prev_size * speed * parameters_.time_step_;
     }

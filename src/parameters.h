@@ -30,8 +30,9 @@ struct Parameters {
   float lane_look_ahead_distance{50.0F};
 
   // trajectory generation
-  int path_size_{50};
-  int n_anchors_{5};
+  int path_size{50};
+  int previous_path_keep{10};  // react sooner!
+  int n_anchors{5};
   float anchors_look_ahead_distance{90.0F};
   float trajectory_length{30.0F};
 };
